@@ -403,9 +403,9 @@
   }
 </style><link href="./My Recipe Collection - Kuse AI_files/css2(1)" rel="stylesheet"><script src="./My Recipe Collection - Kuse AI_files/html2pdf.bundle.min.js.download"></script><script src="./My Recipe Collection - Kuse AI_files/html-docx.js.download"></script><script src="./My Recipe Collection - Kuse AI_files/ua-parser.min.js.download"></script>
 
-    <!-- Firebase SDK v8 -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script type="module">
+   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+  import { getFirestore } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 </head>
 <body>
@@ -836,3 +836,4 @@ const firebaseConfig = {
     <script src="./My Recipe Collection - Kuse AI_files/sdk.prd.js.download"></script>
 </body>
 </html>
+
