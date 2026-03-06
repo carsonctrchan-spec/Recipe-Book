@@ -645,32 +645,32 @@
         }
 
 function addComment(recipeId) {
+    console.log("Add Comment button was clicked for recipe:", recipeId);
+    
     const commentInput = document.getElementById('newComment');
     if (!commentInput) {
-        console.error("Comment textarea not found in DOM");
+        console.error("Cannot find the comment textarea (id='newComment')");
+        alert("Textarea missing – page structure broken");
         return;
     }
     
     const text = commentInput.value.trim();
+    console.log("Comment text entered:", text || "(empty)");
+    
     if (!text) {
-        alert("Please enter a comment first");
+        alert("Please type something in the comment box first");
         return;
     }
-
-    console.log("Attempting to add comment:", text);
-
-    // Safe update: use arrayUnion + make sure comments exists
-    recipesRef.doc(recipeId).update({
-        comments: firebase.firestore.FieldValue.arrayUnion({
-            text: text,
-            date: firebase.firestore.FieldValue.serverTimestamp()
-        })
-    })
-    .then(() => {
-        console.log("Comment added successfully");
-        commentInput.value = '';           // clear the box
-        viewRecipe(recipeId);              // refresh view
-    })
+    
+    alert("Comment would be saved: \"" + text + "\"\n(Actual save is disabled in this debug version)");
+    
+    // Comment out the real save for now so we can test the UI part
+    // recipesRef.doc(recipeId).update({...}).then(...).catch(...);
+    
+    // Just refresh view to simulate success
+    commentInput.value = '';
+    viewRecipe(recipeId);
+}
     .catch(err => {
         console.error("Add comment failed:", err.code, err.message);
         alert("Failed to add comment: " + err.message);
@@ -743,5 +743,6 @@ function addComment(recipeId) {
     </script>
 </body>
 </html>
+
 
 
