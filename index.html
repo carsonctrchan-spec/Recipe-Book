@@ -346,7 +346,9 @@
     </div>
 
     <script>
+        // ────────────────────────────────────────────────
         // Firebase Config
+        // ────────────────────────────────────────────────
         const firebaseConfig = {
             apiKey: "AIzaSyBFujkN3XlpUOjTiL3udEMMW_jhCFaDwu8",
             authDomain: "reciepbook.firebaseapp.com",
@@ -360,7 +362,7 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // Get collection ID from URL
+        // Get collection ID from URL path
         const pathParts = window.location.pathname.split('/').filter(p => p);
         const collectionId = pathParts.length > 0 ? pathParts[pathParts.length - 1] : 'default-collection';
         const recipesRef = db.collection(`recipeCollections/${collectionId}/recipes`);
@@ -369,12 +371,12 @@
         let currentFilter = 'all';
         let searchTerm = '';
 
-        // Real-time listener with error handling
+        // Real-time listener
         recipesRef.onSnapshot(snapshot => {
             recipes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             renderRecipes();
         }, error => {
-            console.error("Firestore connection error:", error);
+            console.error("Firestore listener error:", error);
             alert("Cannot connect to database. Check console (F12) for details.");
         });
 
@@ -484,7 +486,10 @@
 
         function viewRecipe(id) {
             const recipe = recipes.find(r => r.id === id);
-            if (!recipe) return;
+            if (!recipe) {
+                alert("Recipe not found");
+                return;
+            }
 
             const totalTime = recipe.prepTime + recipe.cookTime;
             const lastCookedText = recipe.lastCooked
@@ -562,27 +567,39 @@
         }
 
         function addComment(recipeId) {
+            console.log("[DEBUG] addComment triggered for recipe:", recipeId);
+
             const input = document.getElementById('newComment');
-            const text = input?.value?.trim();
+            if (!input) {
+                console.error("[ERROR] newComment textarea not found in DOM");
+                alert("Comment input field not found. Please reopen the recipe view.");
+                return;
+            }
+
+            const text = input.value.trim();
+            console.log("[DEBUG] Comment text entered:", text || "(empty)");
 
             if (!text) {
                 alert("Please enter a comment first");
                 return;
             }
 
-            recipesRef.doc(recipeId).update({
+            console.log("[DEBUG] Sending update to Firestore...");
+
+            recipesRef.doc(recipeId).set({
                 comments: firebase.firestore.FieldValue.arrayUnion({
-                    text,
+                    text: text,
                     date: firebase.firestore.FieldValue.serverTimestamp()
                 })
-            })
+            }, { merge: true })
             .then(() => {
+                console.log("[SUCCESS] Comment added");
                 input.value = '';
-                viewRecipe(recipeId); // refresh view
+                viewRecipe(recipeId);  // refresh the modal
             })
             .catch(err => {
-                console.error("Add comment failed:", err.code, err.message);
-                alert("Failed to add comment: " + err.message);
+                console.error("[FIRESTORE ERROR]", err.code, err.message);
+                alert("Failed to add comment:\n" + err.message + "\n(Check console for more details)");
             });
         }
 
@@ -615,12 +632,10 @@
 
             let filtered = recipes;
 
-            // Apply cuisine filter
             if (currentFilter !== 'all') {
                 filtered = filtered.filter(r => r.cuisine === currentFilter);
             }
 
-            // Apply name search
             if (searchTerm) {
                 filtered = filtered.filter(r => r.name.toLowerCase().includes(searchTerm));
             }
