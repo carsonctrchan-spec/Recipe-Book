@@ -566,42 +566,44 @@
             document.getElementById('viewModal').classList.add('active');
         }
 
-        function addComment(recipeId) {
-            console.log("[DEBUG] addComment triggered for recipe:", recipeId);
+     function addComment(recipeId) {
+    console.log("[DEBUG] addComment triggered for recipe:", recipeId);
 
-            const input = document.getElementById('newComment');
-            if (!input) {
-                console.error("[ERROR] newComment textarea not found in DOM");
-                alert("Comment input field not found. Please reopen the recipe view.");
-                return;
-            }
+    const input = document.getElementById('newComment');
+    if (!input) {
+        console.error("[ERROR] newComment textarea not found");
+        alert("Comment input field not found. Please reopen the recipe view.");
+        return;
+    }
 
-            const text = input.value.trim();
-            console.log("[DEBUG] Comment text entered:", text || "(empty)");
+    const text = input.value.trim();
+    console.log("[DEBUG] Comment text entered:", text || "(empty)");
 
-            if (!text) {
-                alert("Please enter a comment first");
-                return;
-            }
+    if (!text) {
+        alert("Please enter a comment first");
+        return;
+    }
 
-            console.log("[DEBUG] Sending update to Firestore...");
+    const newComment = {
+        text: text,
+        date: new Date()   // ← client-side timestamp (works everywhere)
+    };
 
-            recipesRef.doc(recipeId).set({
-                comments: firebase.firestore.FieldValue.arrayUnion({
-                    text: text,
-                    date: firebase.firestore.FieldValue.serverTimestamp()
-                })
-            }, { merge: true })
-            .then(() => {
-                console.log("[SUCCESS] Comment added");
-                input.value = '';
-                viewRecipe(recipeId);  // refresh the modal
-            })
-            .catch(err => {
-                console.error("[FIRESTORE ERROR]", err.code, err.message);
-                alert("Failed to add comment:\n" + err.message + "\n(Check console for more details)");
-            });
-        }
+    console.log("[DEBUG] Sending update to Firestore...");
+
+    recipesRef.doc(recipeId).set({
+        comments: firebase.firestore.FieldValue.arrayUnion(newComment)
+    }, { merge: true })
+    .then(() => {
+        console.log("[SUCCESS] Comment added");
+        input.value = '';
+        viewRecipe(recipeId);  // refresh modal
+    })
+    .catch(err => {
+        console.error("[FIRESTORE ERROR]", err.code, err.message);
+        alert("Failed to add comment:\n" + err.message);
+    });
+}
 
         function deleteComment(recipeId, index) {
             if (!confirm('Delete this comment?')) return;
@@ -684,3 +686,4 @@
     </script>
 </body>
 </html>
+
