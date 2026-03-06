@@ -644,19 +644,38 @@
             document.getElementById('viewModal').classList.add('active');
         }
 
-        function addComment(recipeId) {
-            const text = document.getElementById('newComment').value.trim();
-            if (!text) return;
-            recipesRef.doc(recipeId).update({
-                comments: firebase.firestore.FieldValue.arrayUnion({
-                    text,
-                    date: firebase.firestore.FieldValue.serverTimestamp()
-                })
-            }).then(() => {
-                document.getElementById('newComment').value = '';
-                viewRecipe(recipeId);
-            }).catch(err => console.error("Comment add failed:", err));
-        }
+function addComment(recipeId) {
+    const commentInput = document.getElementById('newComment');
+    if (!commentInput) {
+        console.error("Comment textarea not found in DOM");
+        return;
+    }
+    
+    const text = commentInput.value.trim();
+    if (!text) {
+        alert("Please enter a comment first");
+        return;
+    }
+
+    console.log("Attempting to add comment:", text);
+
+    // Safe update: use arrayUnion + make sure comments exists
+    recipesRef.doc(recipeId).update({
+        comments: firebase.firestore.FieldValue.arrayUnion({
+            text: text,
+            date: firebase.firestore.FieldValue.serverTimestamp()
+        })
+    })
+    .then(() => {
+        console.log("Comment added successfully");
+        commentInput.value = '';           // clear the box
+        viewRecipe(recipeId);              // refresh view
+    })
+    .catch(err => {
+        console.error("Add comment failed:", err.code, err.message);
+        alert("Failed to add comment: " + err.message);
+    });
+}
 
         function deleteComment(recipeId, index) {
             if (!confirm('Delete this comment?')) return;
@@ -724,4 +743,5 @@
     </script>
 </body>
 </html>
+
 
