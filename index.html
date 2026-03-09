@@ -706,7 +706,7 @@
         }
 
         // NEW: Save pasted text as a recipe
- function savePastedTextAsRecipe() {
+function savePastedTextAsRecipe() {
     const textarea = document.getElementById('pasteText');
     const rawText = textarea.value.trim();
 
@@ -726,59 +726,66 @@
     let ingredients = [];
     let instructions = [];
 
-    // Early extraction: scan for name, cuisine, image, prep/cook/servings FIRST
+    // Step 1: Early extraction of metadata (remove these lines from processing)
+    const remainingLines = [];
+
     lines.forEach(line => {
         const lower = line.toLowerCase();
 
         // Name
         if (lower.startsWith('name:') || lower.startsWith('標題:') || lower.startsWith('recipe name:') || lower.startsWith('title:')) {
             name = line.split(/[:：]/)[1]?.trim() || line.trim();
+            return; // skip
         }
 
         // Cuisine
         if (lower.startsWith('cuisine:') || lower.startsWith('類型:') || lower.startsWith('類別:')) {
             const value = line.split(/[:：]/)[1]?.trim() || '';
             if (value) cuisine = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+            return; // skip
         }
 
-        // Image
+        // Image URL
         const imgMatch = line.match(/https?:\/\/[^\s"']+\.(jpg|jpeg|png|gif|webp|bmp)(\?[^\s"']*)?/gi);
         if (imgMatch && !imageUrl) {
             imageUrl = imgMatch[0].split('?')[0];
+            return; // skip
         }
         if (line.startsWith('Image:') || line.startsWith('Photo:') || line.startsWith('圖片:')) {
             const urlPart = line.replace(/^Image:\s*/i, '').replace(/^Photo:\s*/i, '').replace(/^圖片:\s*/i, '').trim();
-            if (urlPart.startsWith('https://')) imageUrl = urlPart.split(' ')[0];
+            if (urlPart.startsWith('https://')) {
+                imageUrl = urlPart.split(' ')[0];
+                return; // skip
+            }
         }
 
         // Prep / Cook / Servings
         if (lower.includes('prep') || lower.includes('preparation')) {
             const match = line.match(/(\d+)/);
             if (match) prepTime = parseInt(match[1]) || 0;
+            return; // skip
         }
         if (lower.includes('cook') || lower.includes('bake') || lower.includes('oven')) {
             const match = line.match(/(\d+)/);
             if (match) cookTime = parseInt(match[1]) || 0;
+            return; // skip
         }
         if (lower.includes('serv') || lower.includes('serve') || lower.includes('portion') || lower.includes('makes')) {
             const match = line.match(/(\d+)/);
             if (match) servings = parseInt(match[1]) || 1;
+            return; // skip
         }
+
+        // Keep remaining lines for section parsing
+        remainingLines.push(line);
     });
 
-    // Now process for ingredients & instructions
+    // Step 2: Parse remaining lines for ingredients & instructions
     let inIngredients = false;
     let inInstructions = false;
 
-    lines.forEach(line => {
+    remainingLines.forEach(line => {
         const lower = line.toLowerCase();
-
-        // Skip already-parsed metadata lines
-        if (lower.includes('name:') || lower.includes('cuisine:') || lower.includes('image:') ||
-            lower.includes('prep') || lower.includes('cook') || lower.includes('serv') ||
-            line.includes(imageUrl)) {
-            return;
-        }
 
         // Section switching
         if (lower.includes('ingredient') || lower === 'ingredients:' || lower === '材料:' || lower.includes('配料')) {
@@ -803,7 +810,7 @@
             return;
         }
 
-        // Instructions - split into steps
+        // Instructions - force split into separate steps
         if (inInstructions || 
             line.match(/^\d+\.\s/) || line.match(/^step\s*\d+/i) || 
             line.match(/^\d+\s+[a-z]/i)) {
@@ -812,8 +819,8 @@
             return;
         }
 
-        // Fallback: add to instructions only if not metadata
-        if (line.length > 5 && !line.startsWith('https://')) {
+        // Fallback: add to instructions only if not empty
+        if (line.length > 5) {
             instructions.push(line);
         }
     });
@@ -831,7 +838,7 @@
         servings: servings,
         imageUrl: imageUrl,
         ingredients: ingredients,
-        instructions: instructions.length > 0 ? instructions : [rawText],
+        instructions: instructions,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         lastCooked: null,
         comments: []
@@ -858,6 +865,7 @@
     </script>
 </body>
 </html>
+
 
 
 
