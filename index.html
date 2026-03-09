@@ -726,7 +726,7 @@ function savePastedTextAsRecipe() {
     let ingredients = [];
     let instructions = [];
 
-    // Cuisine fallback keywords
+    // Cuisine keywords (fallback)
     const cuisineKeywords = {
         italian: ["italian", "pasta", "pizza", "carbonara"],
         chinese: ["chinese", "stir fry", "dumpling", "fried rice"],
@@ -740,7 +740,7 @@ function savePastedTextAsRecipe() {
         dessert: ["dessert", "cake", "cookie", "pie", "chocolate", "brownie"]
     };
 
-    // Phase 1: Extract metadata early (remove from lines)
+    // Phase 1: Early extraction of metadata (skip these lines)
     const contentLines = [];
 
     lines.forEach(line => {
@@ -790,49 +790,51 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Keep line for ingredients/instructions
         contentLines.push(line);
     });
 
-    // Phase 2: Split content lines into ingredients & instructions
-    let seenIngredientsKeyword = false;
-    let seenInstructionsKeyword = false;
+    // Phase 2: Process remaining lines for ingredients & instructions
+    let inIngredients = false;
+    let inInstructions = false;
 
     contentLines.forEach(line => {
         const lower = line.toLowerCase();
 
-        // Detect start of ingredients
-        if (lower.includes('ingredient') || lower.includes('材料') || lower.includes('配料') || lower === 'ingredients:') {
-            seenIngredientsKeyword = true;
+        // Section switching (trigger on keywords or exact labels)
+        if (lower.includes('ingredient') || lower === 'ingredients:' || lower === '材料:' || lower.includes('配料')) {
+            inIngredients = true;
+            inInstructions = false;
+            return;
+        }
+        if (lower.includes('instruction') || lower.includes('step') || lower === 'instructions:' || 
+            lower === '做法:' || lower === 'steps:' || lower.includes('步驟') || lower.includes('做法')) {
+            inInstructions = true;
+            inIngredients = false;
             return;
         }
 
-        // Detect start of instructions
-        if (lower.includes('instruction') || lower.includes('step') || lower.includes('做法') || lower.includes('步驟') || lower === 'instructions:') {
-            seenInstructionsKeyword = true;
-            return;
-        }
-
-        // Add to ingredients if before instructions or matches pattern
-        if (seenIngredientsKeyword && !seenInstructionsKeyword) {
+        // Ingredients
+        if (inIngredients || 
+            line.startsWith('-') || line.startsWith('•') || line.startsWith('*') ||
+            line.match(/^\d+(\.\d+)?\s*(cup|tsp|tbsp|gram|g|ml|kg|個|份|片|條)/i) ||
+            line.match(/^\d+\s*[a-z]/i)) {
             let cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
             if (cleaned) ingredients.push(cleaned);
-        } else if (seenInstructionsKeyword || line.match(/^\d+\.\s/) || line.match(/^step\s*\d+/i)) {
+            return;
+        }
+
+        // Instructions - add almost everything after detection
+        if (inInstructions || line.match(/^\d+\.\s/) || line.match(/^step\s*\d+/i) || line.length > 8) {
             let cleaned = line.replace(/^\d+\.\s*/, '').replace(/^step\s*\d+:\s*/i, '').trim();
             if (cleaned) instructions.push(cleaned);
-        } else if (line.match(/^\d+(\.\d+)?\s*[a-z]/i) || line.startsWith('-') || line.startsWith('•')) {
-            let cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
-            if (cleaned) ingredients.push(cleaned);
-        } else if (line.length > 10) {
-            // Treat as instruction step
+            return;
+        }
+
+        // Ultimate fallback: add to instructions if not metadata
+        if (line.length > 5) {
             instructions.push(line);
         }
     });
-
-    // If no instructions but lots of lines, use fallback
-    if (instructions.length === 0 && contentLines.length > 5) {
-        instructions = contentLines.slice(ingredients.length);
-    }
 
     // Cleanup
     if (instructions.length > 0 && instructions[0].toLowerCase().includes(name.toLowerCase())) {
@@ -873,6 +875,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
