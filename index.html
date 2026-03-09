@@ -740,7 +740,7 @@ function savePastedTextAsRecipe() {
         dessert: ["dessert", "cake", "cookie", "pie", "chocolate", "brownie"]
     };
 
-    // Phase 1: Early extraction of metadata (skip these lines)
+    // Phase 1: Extract metadata (skip these lines)
     const contentLines = [];
 
     lines.forEach(line => {
@@ -790,30 +790,23 @@ function savePastedTextAsRecipe() {
             return;
         }
 
+        // Keep for next phase
         contentLines.push(line);
     });
 
-    // Phase 2: Process remaining lines for ingredients & instructions
+    // Phase 2: Simple split of remaining lines
     let inIngredients = false;
-    let inInstructions = false;
 
     contentLines.forEach(line => {
         const lower = line.toLowerCase();
 
-        // Section switching (trigger on keywords or exact labels)
+        // Detect ingredients section
         if (lower.includes('ingredient') || lower === 'ingredients:' || lower === '材料:' || lower.includes('配料')) {
             inIngredients = true;
-            inInstructions = false;
-            return;
-        }
-        if (lower.includes('instruction') || lower.includes('step') || lower === 'instructions:' || 
-            lower === '做法:' || lower === 'steps:' || lower.includes('步驟') || lower.includes('做法')) {
-            inInstructions = true;
-            inIngredients = false;
             return;
         }
 
-        // Ingredients
+        // Add to ingredients if matches pattern or in section
         if (inIngredients || 
             line.startsWith('-') || line.startsWith('•') || line.startsWith('*') ||
             line.match(/^\d+(\.\d+)?\s*(cup|tsp|tbsp|gram|g|ml|kg|個|份|片|條)/i) ||
@@ -823,20 +816,14 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Instructions - add almost everything after detection
-        if (inInstructions || line.match(/^\d+\.\s/) || line.match(/^step\s*\d+/i) || line.length > 8) {
+        // Everything else goes to instructions
+        if (line.length > 3) {
             let cleaned = line.replace(/^\d+\.\s*/, '').replace(/^step\s*\d+:\s*/i, '').trim();
             if (cleaned) instructions.push(cleaned);
-            return;
-        }
-
-        // Ultimate fallback: add to instructions if not metadata
-        if (line.length > 5) {
-            instructions.push(line);
         }
     });
 
-    // Cleanup
+    // Cleanup instructions
     if (instructions.length > 0 && instructions[0].toLowerCase().includes(name.toLowerCase())) {
         instructions.shift();
     }
@@ -875,6 +862,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
