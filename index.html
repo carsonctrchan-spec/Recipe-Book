@@ -779,7 +779,7 @@ function savePastedTextAsRecipe() {
         contentLines.push(line);
     });
 
-    // Phase 2: Split content
+    // Phase 2: Split content into ingredients & instructions
     let inIngredients = false;
     let inInstructions = false;
 
@@ -799,33 +799,27 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Ingredients - strict quantity + unit or bullet
-        if (inIngredients || line.match(/^\d+(\.\d+)?\s*(cup|tsp|tbsp|gram|g|ml|kg|個|份|片|條)/i)) {
-            let cleaned = line.replace(/^\d+\.\s*/, '').trim();
-            if (cleaned) ingredients.push(cleaned);
-            return;
-        }
-        if (line.startsWith('-') || line.startsWith('•') || line.startsWith('*')) {
-            let cleaned = line.replace(/^[-•*]\s*/, '').trim();
+        // Ingredients - only if bullet or quantity pattern
+        if (inIngredients || 
+            line.startsWith('-') || line.startsWith('•') || line.startsWith('*') ||
+            line.match(/^\d+(\.\d+)?\s*(cup|tsp|tbsp|gram|g|ml|kg|個|份|片|條)/i)) {
+            let cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
             if (cleaned) ingredients.push(cleaned);
             return;
         }
 
-        // Instructions - add if in section or line looks like step
+        // Instructions - add if in section or line looks like step or descriptive
         if (inInstructions || line.match(/^\d+\.\s/) || line.match(/^step\s*\d+/i) || line.length > 5) {
             let cleaned = line.replace(/^\d+\.\s*/, '').replace(/^step\s*\d+:\s*/i, '').trim();
             if (cleaned) instructions.push(cleaned);
             return;
         }
-    });
 
-    // Fallback: add any remaining lines to instructions
-    if (instructions.length === 0 && contentLines.length > ingredients.length) {
-        contentLines.slice(ingredients.length).forEach(line => {
-            let cleaned = line.replace(/^\d+\.\s*/, '').replace(/^step\s*\d+:\s*/i, '').trim();
-            if (cleaned) instructions.push(cleaned);
-        });
-    }
+        // Fallback: add to instructions
+        if (line.length > 5) {
+            instructions.push(line);
+        }
+    });
 
     // Cleanup
     if (instructions.length > 0 && instructions[0].toLowerCase().includes(name.toLowerCase())) {
@@ -866,6 +860,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
