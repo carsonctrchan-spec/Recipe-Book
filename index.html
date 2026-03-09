@@ -725,38 +725,29 @@ function savePastedTextAsRecipe() {
     let imageUrl = "";
     let ingredients = [];
     let instructions = [];
-
-    // Phase 1: Extract metadata (remove these lines)
-    const contentLines = [];
+    let collectingInstructions = false;
 
     lines.forEach(line => {
         const lower = line.toLowerCase();
 
         // Name
-        if (lower.startsWith('name:') || lower.startsWith('標題:') || lower.startsWith('recipe name:') || lower.startsWith('title:')) {
+        if (lower.startsWith('name:')) {
             name = line.split(/[:：]/)[1]?.trim() || line.trim();
             return;
         }
 
         // Cuisine
-        if (lower.startsWith('cuisine:') || lower.startsWith('類型:') || lower.startsWith('類別:')) {
+        if (lower.startsWith('cuisine:')) {
             const value = line.split(/[:：]/)[1]?.trim() || '';
             if (value) cuisine = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
             return;
         }
 
         // Image
-        const imgMatch = line.match(/https?:\/\/[^\s"']+\.(jpg|jpeg|png|gif|webp|bmp)(\?[^\s"']*)?/gi);
-        if (imgMatch && !imageUrl) {
-            imageUrl = imgMatch[0].split('?')[0];
+        if (lower.startsWith('image:')) {
+            const urlPart = line.split(/[:：]/)[1]?.trim() || line.trim();
+            if (urlPart.startsWith('https://')) imageUrl = urlPart;
             return;
-        }
-        if (line.startsWith('Image:') || line.startsWith('Photo:') || line.startsWith('圖片:')) {
-            const urlPart = line.replace(/^Image:\s*/i, '').replace(/^Photo:\s*/i, '').replace(/^圖片:\s*/i, '').trim();
-            if (urlPart.startsWith('https://')) {
-                imageUrl = urlPart.split(' ')[0];
-                return;
-            }
         }
 
         // Prep / Cook / Servings
@@ -776,48 +767,24 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        contentLines.push(line);
-    });
-
-    // Phase 2: Split content into ingredients & instructions
-    let inIngredients = false;
-    let inInstructions = false;
-
-    contentLines.forEach(line => {
-        const lower = line.toLowerCase();
-
-        // Section switching
-        if (lower.includes('ingredient') || lower === 'ingredients:' || lower === '材料:' || lower.includes('配料')) {
-            inIngredients = true;
-            inInstructions = false;
-            return;
-        }
-        if (lower.includes('instruction') || lower.includes('step') || lower === 'instructions:' || 
-            lower === '做法:' || lower === 'steps:' || lower.includes('步驟') || lower.includes('做法')) {
-            inInstructions = true;
-            inIngredients = false;
+        // Start collecting instructions when we hit "Instructions:"
+        if (lower.startsWith('instructions:')) {
+            collectingInstructions = true;
             return;
         }
 
-        // Ingredients - only if bullet or quantity pattern
-        if (inIngredients || 
-            line.startsWith('-') || line.startsWith('•') || line.startsWith('*') ||
-            line.match(/^\d+(\.\d+)?\s*(cup|tsp|tbsp|gram|g|ml|kg|個|份|片|條)/i)) {
+        // Ingredients (before instructions)
+        if (!collectingInstructions) {
             let cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
-            if (cleaned) ingredients.push(cleaned);
-            return;
+            if (cleaned && line.match(/^\d+(\.\d+)?\s*/)) { // only quantity lines
+                ingredients.push(cleaned);
+            }
         }
 
-        // Instructions - add if in section or line looks like step or descriptive
-        if (inInstructions || line.match(/^\d+\.\s/) || line.match(/^step\s*\d+/i) || line.length > 5) {
-            let cleaned = line.replace(/^\d+\.\s*/, '').replace(/^step\s*\d+:\s*/i, '').trim();
+        // Instructions: add every line after the marker
+        if (collectingInstructions && line.length > 3) {
+            let cleaned = line.replace(/^\d+\.\s*/, '').trim();
             if (cleaned) instructions.push(cleaned);
-            return;
-        }
-
-        // Fallback: add to instructions
-        if (line.length > 5) {
-            instructions.push(line);
         }
     });
 
@@ -860,6 +827,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
