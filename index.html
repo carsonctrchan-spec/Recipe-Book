@@ -718,7 +718,7 @@
     // Split into lines
     const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
 
-    let name = "Pasted Recipe - " + new Date().toLocaleString();
+    let name = "Pasted Recipe - " + new Date().toLocaleString();  // fallback
     let cuisine = "Other";
     let prepTime = 0;
     let cookTime = 0;
@@ -728,7 +728,7 @@
     let instructions = [];
     let currentSection = "unknown";
 
-    // Cuisine keywords (for auto-detection)
+    // Cuisine keywords
     const cuisineKeywords = {
         italian: ["italian", "pasta", "pizza", "carbonara"],
         chinese: ["chinese", "stir fry", "dumpling", "fried rice"],
@@ -742,31 +742,30 @@
         dessert: ["dessert", "cake", "cookie", "pie", "chocolate", "brownie"]
     };
 
-    // Scan lines
     lines.forEach((line, idx) => {
         const lower = line.toLowerCase();
 
-        // 1. Image URL detection (now supports prefix + Google encrypted links)
-        if (line.startsWith('Image:') || line.startsWith('Photo:') || line.startsWith('https://')) {
-            // Extract the actual URL part
-            const urlPart = line.replace(/^Image:\s*/i, '').replace(/^Photo:\s*/i, '').trim();
-            if (urlPart.startsWith('https://') && urlPart.length > 30) {
-                imageUrl = urlPart.split(' ')[0]; // take first word as URL
+        // 1. Force name detection from "Name:" or similar
+        if (lower.startsWith('name:') || lower.startsWith('標題:') || lower.startsWith('recipe name:') || lower.startsWith('title:')) {
+            name = line.split(/[:：]/)[1]?.trim() || line;
+            if (name.length < 3) name = "Pasted Recipe - " + new Date().toLocaleString();
+            return;
+        }
+
+        // 2. Image URL (now supports prefix + raw https links)
+        if (line.startsWith('Image:') || line.startsWith('Photo:') || line.startsWith('圖片:') || 
+            line.startsWith('https://') && (line.includes('.jpg') || line.includes('.png') || line.includes('.gif'))) {
+            const urlPart = line.replace(/^Image:\s*/i, '')
+                               .replace(/^Photo:\s*/i, '')
+                               .replace(/^圖片:\s*/i, '')
+                               .trim();
+            if (urlPart.startsWith('https://') && urlPart.length > 20) {
+                imageUrl = urlPart.split(' ')[0];  // take first clean URL
                 return;
             }
         }
 
-        // 2. Name detection — first good candidate (very lenient now)
-        if (name.startsWith("Pasted") && idx < 8 && line.length > 5 &&
-            !lower.includes('prep') && !lower.includes('cook') && !lower.includes('serv') &&
-            !lower.includes('time') && !lower.includes('min') && !lower.includes('ingredient') &&
-            !lower.includes('instruction') && !lower.includes('材料') && !lower.includes('做法') &&
-            !line.startsWith('-') && !line.startsWith('•') && !line.startsWith('*') && !/^\d/.test(line)) {
-            name = line.trim();
-            return;
-        }
-
-        // 3. Parse prep/cook/servings
+        // 3. Prep / Cook / Servings
         if (lower.includes('prep') || lower.includes('preparation')) {
             const match = line.match(/(\d+)/);
             if (match) prepTime = parseInt(match[1]) || 0;
@@ -780,7 +779,7 @@
             if (match) servings = parseInt(match[1]) || 1;
         }
 
-        // 4. Cuisine detection
+        // 4. Cuisine
         for (const [key, words] of Object.entries(cuisineKeywords)) {
             if (words.some(w => lower.includes(w))) {
                 cuisine = key.charAt(0).toUpperCase() + key.slice(1);
@@ -788,7 +787,7 @@
             }
         }
 
-        // 5. Section switching
+        // 5. Section markers
         if (lower.includes('ingredient') || lower === 'ingredients:' || lower === '材料:' || lower.includes('配料')) {
             currentSection = "ingredients";
             return;
@@ -829,6 +828,11 @@
         instructions.shift();
     }
 
+    // Fallback if no instructions
+    if (instructions.length === 0 && lines.length > 3) {
+        instructions = lines.slice(1);
+    }
+
     const data = {
         name: name,
         cuisine: cuisine,
@@ -837,7 +841,7 @@
         servings: servings,
         imageUrl: imageUrl,
         ingredients: ingredients,
-        instructions: instructions.length > 0 ? instructions : [rawText],
+        instructions: instructions,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         lastCooked: null,
         comments: []
@@ -849,8 +853,8 @@
             msg += `Prep: ${prepTime} min | Cook: ${cookTime} min | Servings: ${servings}\n`;
             msg += `Ingredients: ${ingredients.length} items\n`;
             msg += `Steps: ${instructions.length}\n`;
-            if (imageUrl) msg += `Image saved: ${imageUrl}\n(should show in card)`;
-            alert(msg + "\nCheck the new card — click Edit if needed.");
+            if (imageUrl) msg += `Image: ${imageUrl}\n(should appear in card)`;
+            alert(msg + "\nCheck the new card — edit if needed.");
             textarea.value = '';
         })
         .catch(err => {
@@ -864,6 +868,7 @@
     </script>
 </body>
 </html>
+
 
 
 
