@@ -718,6 +718,7 @@
     // Split into clean lines
     const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
 
+    // Default name
     let name = "Pasted Recipe - " + new Date().toLocaleString();
     let cuisine = "Other";
     let prepTime = 0;
@@ -726,49 +727,43 @@
     let imageUrl = "";
     let ingredients = [];
     let instructions = [];
-    let currentSection = "unknown"; // ingredients, instructions, or unknown
+    let currentSection = "unknown";
 
-    // Common cuisine keywords (expand as needed)
-    const cuisineMap = {
-        italian: ["italian", "pasta", "pizza", "carbonara", "risotto"],
-        chinese: ["chinese", "stir fry", "wok", "dumpling", "noodle", "fried rice"],
-        mexican: ["mexican", "taco", "burrito", "guacamole", "enchilada"],
-        indian: ["indian", "curry", "tikka", "masala", "naan"],
-        french: ["french", "croissant", "ratatouille", "coq au vin", "crème brûlée"],
-        japanese: ["japanese", "sushi", "ramen", "teriyaki", "tempura"],
-        thai: ["thai", "tom yum", "pad thai", "green curry"],
-        american: ["american", "burger", "bbq", "mac and cheese", "cookies"],
-        mediterranean: ["mediterranean", "greek", "hummus", "falafel", "tzatziki"],
-        dessert: ["dessert", "cake", "cookie", "pie", "chocolate", "ice cream"]
+    // Cuisine keywords (expand as needed)
+    const cuisineKeywords = {
+        italian: ["italian", "pasta", "pizza", "carbonara"],
+        chinese: ["chinese", "stir fry", "dumpling", "fried rice"],
+        mexican: ["mexican", "taco", "burrito"],
+        indian: ["indian", "curry", "masala"],
+        french: ["french", "croissant", "ratatouille"],
+        japanese: ["japanese", "sushi", "ramen"],
+        thai: ["thai", "pad thai", "tom yum"],
+        american: ["american", "burger", "bbq", "cookie"],
+        mediterranean: ["mediterranean", "greek", "hummus"],
+        dessert: ["dessert", "cake", "cookie", "pie", "chocolate"]
     };
 
     lines.forEach((line, idx) => {
         const lower = line.toLowerCase();
 
-        // 1. Extract image URL
+        // Extract image URL first (highest priority)
         const imgMatch = line.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)(\?[^\s]*)?/i);
         if (imgMatch) {
-            imageUrl = imgMatch[0].split('?')[0]; // clean URL
+            imageUrl = imgMatch[0].split('?')[0];
             return;
         }
 
-        // 2. Try to detect name (first non-empty, non-bullet line)
-        if (idx < 6 && name.startsWith("Pasted") && line.length > 8 && 
-            !lower.startsWith('-') && !lower.startsWith('•') && !/^\d/.test(line) && 
-            !lower.includes('prep') && !lower.includes('cook') && !lower.includes('serve')) {
+        // Try to set name ONLY from the very first meaningful line
+        if (idx === 0 && line.length > 8 && 
+            !lower.includes('prep') && !lower.includes('cook') && !lower.includes('serv') &&
+            !lower.includes('ingredient') && !lower.includes('instruction') && 
+            !lower.includes('材料') && !lower.includes('做法') && 
+            !line.startsWith('-') && !line.startsWith('•') && !/^\d/.test(line)) {
             name = line;
             return;
         }
 
-        // 3. Detect cuisine from keywords
-        for (const [key, words] of Object.entries(cuisineMap)) {
-            if (words.some(w => lower.includes(w))) {
-                cuisine = key.charAt(0).toUpperCase() + key.slice(1);
-                break;
-            }
-        }
-
-        // 4. Detect prep/cook/servings
+        // Parse prep / cook / servings (anywhere)
         if (lower.includes('prep') || lower.includes('preparation')) {
             const match = line.match(/(\d+)/);
             if (match) prepTime = parseInt(match[1]) || 0;
@@ -777,23 +772,31 @@
             const match = line.match(/(\d+)/);
             if (match) cookTime = parseInt(match[1]) || 0;
         }
-        if (lower.includes('serv') || lower.includes('serve') || lower.includes('portion') || lower.includes('people')) {
+        if (lower.includes('serv') || lower.includes('serve') || lower.includes('portion') || lower.includes('makes')) {
             const match = line.match(/(\d+)/);
             if (match) servings = parseInt(match[1]) || 1;
         }
 
-        // 5. Section switching
-        if (lower.includes('ingredient') || lower === 'ingredients:' || lower === '材料:' || lower.includes('材料')) {
+        // Detect cuisine
+        for (const [key, words] of Object.entries(cuisineKeywords)) {
+            if (words.some(w => lower.includes(w))) {
+                cuisine = key.charAt(0).toUpperCase() + key.slice(1);
+                break;
+            }
+        }
+
+        // Section markers (stronger detection)
+        if (lower === 'ingredients:' || lower.includes('ingredient') || lower === '材料:' || lower.includes('材料')) {
             currentSection = "ingredients";
             return;
         }
-        if (lower.includes('instruction') || lower.includes('step') || lower === 'instructions:' || 
+        if (lower === 'instructions:' || lower.includes('instruction') || lower.includes('step') || 
             lower === '做法:' || lower === 'steps:' || lower.includes('做法') || lower.includes('步驟')) {
             currentSection = "instructions";
             return;
         }
 
-        // 6. Add to ingredients if in ingredients section or matches pattern
+        // Add to ingredients if matches pattern or in ingredients section
         if (currentSection === "ingredients" || 
             line.startsWith('-') || line.startsWith('•') || line.startsWith('*') ||
             line.match(/^\d+(\.\d+)?\s*(cup|tsp|tbsp|gram|g|ml|kg|個|份|片|條)/i) ||
@@ -803,7 +806,7 @@
             return;
         }
 
-        // 7. Add to instructions if in instructions or looks like a step
+        // Add to instructions if matches pattern or in instructions section
         if (currentSection === "instructions" || 
             line.match(/^\d+\.\s/) || line.match(/^step\s*\d+/i) || 
             line.match(/^\d+\s+[a-z]/i)) {
@@ -812,20 +815,15 @@
             return;
         }
 
-        // 8. Fallback: add to instructions if not empty
+        // Fallback: add to instructions
         if (line.length > 5 && !line.startsWith('http')) {
             instructions.push(line);
         }
     });
 
-    // Cleanup: remove duplicate title or junk in instructions
+    // Final cleanup
     if (instructions.length > 0 && instructions[0].toLowerCase().includes(name.toLowerCase())) {
-        instructions.shift();
-    }
-
-    // Fallback if no instructions but lots of text
-    if (instructions.length === 0 && lines.length > 5) {
-        instructions = lines.slice(3); // skip first few lines
+        instructions.shift(); // remove duplicate title in steps
     }
 
     const data = {
@@ -836,7 +834,7 @@
         servings: servings,
         imageUrl: imageUrl,
         ingredients: ingredients,
-        instructions: instructions.length > 0 ? instructions : [rawText], // fallback to full text
+        instructions: instructions.length > 0 ? instructions : [rawText],
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         lastCooked: null,
         comments: []
@@ -844,13 +842,12 @@
 
     recipesRef.add(data)
         .then(() => {
-            let msg = `Saved successfully!\n\nName: ${name}\nCuisine: ${cuisine}\n`;
-            if (prepTime || cookTime) msg += `Prep: ${prepTime} min | Cook: ${cookTime} min\n`;
-            msg += `Servings: ${servings}\n`;
-            if (ingredients.length) msg += `Ingredients: ${ingredients.length} items\n`;
+            let msg = `Saved!\nName: ${name}\nCuisine: ${cuisine}\n`;
+            msg += `Prep: ${prepTime} min | Cook: ${cookTime} min | Servings: ${servings}\n`;
+            if (ingredients.length) msg += `Ingredients: ${ingredients.length}\n`;
             if (instructions.length) msg += `Steps: ${instructions.length}\n`;
-            if (imageUrl) msg += "Image saved (should show in card)\n";
-            alert(msg + "\nYou can now edit or view it.");
+            if (imageUrl) msg += "Image URL saved (should display)\n";
+            alert(msg + "Open Edit to review or adjust.");
             textarea.value = '';
         })
         .catch(err => {
@@ -864,6 +861,7 @@
     </script>
 </body>
 </html>
+
 
 
 
