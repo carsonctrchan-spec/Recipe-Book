@@ -5,11 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Recipe Collection</title>
 
-    <!-- Firebase Compat SDK (v10) -->
+    <!-- Firebase Compat SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
     <style>
+        .generator-section {
+            margin: 20px 0;
+            padding: 16px;
+            background: #fffaf5;
+            border-radius: 12px;
+            border: 1px solid #ffe0cc;
+        }
+        .generator-section textarea {
+            width: 100%;
+            min-height: 90px;
+            padding: 12px;
+            border: 2px solid #ffccb3;
+            border-radius: 8px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .generator-section button {
+            margin-top: 12px;
+        }
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
             font-family: 'Poppins', sans-serif;
@@ -253,7 +272,11 @@
                 </div>
                 <button class="btn-primary" onclick="openCreateModal()">+ Add New Recipe</button>
             </div>
-
+<div class="generator-section">
+                <strong>Paste any text (ingredients, idea, description...)</strong><br>
+                <textarea id="aiPrompt" placeholder="Example: quick chicken stir fry with rice, spicy, for 3 people, under 30 min"></textarea>
+                <button class="btn-primary" onclick="generateRecipeFromText()">Generate Recipe with AI</button>
+            </div>
             <input type="text" id="searchBox" placeholder="Search by dish name..." oninput="renderRecipes()">
 
             <div class="filter-buttons">
@@ -379,7 +402,95 @@
             console.error("Firestore listener error:", error);
             alert("Cannot connect to database. Check console (F12) for details.");
         });
+const XAI_API_KEY = "xai-your-real-api-key-here-abc123...";   // ← PASTE YOUR KEY HERE
 
+        async function generateRecipeFromText() {
+            const promptInput = document.getElementById('aiPrompt');
+            const userText = promptInput.value.trim();
+
+            if (!userText) {
+                alert("Please enter some text first (ingredients, idea, etc.)");
+                return;
+            }
+
+            // Show loading feedback
+            promptInput.placeholder = "Generating recipe... please wait...";
+            promptInput.disabled = true;
+
+            try {
+                const systemPrompt = `You are a professional chef. Convert the following user description into a complete, well-formatted recipe JSON object. Use this exact structure - do not add extra text:
+
+{
+  "name": "Recipe Name",
+  "cuisine": "One of: Italian, Chinese, Mexican, Indian, French, Japanese, Thai, American, Mediterranean, Dessert, Other",
+  "prepTime": number (minutes),
+  "cookTime": number (minutes),
+  "servings": number,
+  "ingredients": ["item 1", "item 2", ...],
+  "instructions": ["Step 1 description.", "Step 2 description.", ...]
+}
+
+User description: ${userText}`;
+
+                const response = await fetch("https://api.x.ai/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${XAI_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: "grok-beta",           // or "grok-4-0709", "grok-3", etc. — check your available models
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            { role: "user", content: userText }
+                        ],
+                        temperature: 0.7,
+                        max_tokens: 1200
+                    })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error?.message || `HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                const raw = data.choices[0].message.content.trim();
+
+                // Try to extract valid JSON (Grok sometimes adds extra text)
+                let jsonStr = raw;
+                const jsonMatch = raw.match(/\{[\s\S]*\}/);
+                if (jsonMatch) jsonStr = jsonMatch[0];
+
+                const recipeData = JSON.parse(jsonStr);
+
+                // Fill the form
+                openCreateModal();
+
+                document.getElementById('recipeName').value = recipeData.name || "Generated Recipe";
+                document.getElementById('cuisineType').value = recipeData.cuisine || "Other";
+                document.getElementById('prepTime').value = recipeData.prepTime || 15;
+                document.getElementById('cookTime').value = recipeData.cookTime || 20;
+                document.getElementById('servings').value = recipeData.servings || 2;
+
+                // Clear and fill ingredients
+                document.getElementById('ingredientsList').innerHTML = '';
+                (recipeData.ingredients || []).forEach(ing => addIngredientField(ing));
+
+                // Clear and fill instructions
+                document.getElementById('instructionsList').innerHTML = '';
+                (recipeData.instructions || []).forEach(step => addInstructionField(step));
+
+                alert("Recipe generated! Check & edit if needed, then save.");
+
+            } catch (err) {
+                console.error("Grok API error:", err);
+                alert("Failed to generate recipe:\n" + err.message + "\n(Check console for details)");
+            } finally {
+                promptInput.disabled = false;
+                promptInput.placeholder = "Example: quick chicken stir fry with rice, spicy, for 3 people, under 30 min";
+            }
+        }
         function openCreateModal() {
             document.getElementById('modalTitle').textContent = 'Add New Recipe';
             document.getElementById('recipeForm').reset();
@@ -686,4 +797,5 @@
     </script>
 </body>
 </html>
+
 
