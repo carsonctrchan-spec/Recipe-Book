@@ -726,21 +726,7 @@ function savePastedTextAsRecipe() {
     let ingredients = [];
     let instructions = [];
 
-    // Cuisine keywords (fallback)
-    const cuisineKeywords = {
-        italian: ["italian", "pasta", "pizza", "carbonara"],
-        chinese: ["chinese", "stir fry", "dumpling", "fried rice"],
-        mexican: ["mexican", "taco", "burrito"],
-        indian: ["indian", "curry", "masala"],
-        french: ["french", "croissant", "ratatouille"],
-        japanese: ["japanese", "sushi", "ramen"],
-        thai: ["thai", "pad thai", "tom yum"],
-        american: ["american", "burger", "bbq", "cookie"],
-        mediterranean: ["mediterranean", "greek", "hummus"],
-        dessert: ["dessert", "cake", "cookie", "pie", "chocolate", "brownie"]
-    };
-
-    // Phase 1: Extract metadata (skip these lines)
+    // Phase 1: Extract metadata - skip these lines
     const contentLines = [];
 
     lines.forEach(line => {
@@ -790,23 +776,22 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Keep for next phase
         contentLines.push(line);
     });
 
-    // Phase 2: Simple split of remaining lines
+    // Phase 2: Split content into ingredients & instructions
     let inIngredients = false;
 
     contentLines.forEach(line => {
         const lower = line.toLowerCase();
 
-        // Detect ingredients section
+        // Detect ingredients start
         if (lower.includes('ingredient') || lower === 'ingredients:' || lower === '材料:' || lower.includes('配料')) {
             inIngredients = true;
             return;
         }
 
-        // Add to ingredients if matches pattern or in section
+        // Add to ingredients if pattern matches
         if (inIngredients || 
             line.startsWith('-') || line.startsWith('•') || line.startsWith('*') ||
             line.match(/^\d+(\.\d+)?\s*(cup|tsp|tbsp|gram|g|ml|kg|個|份|片|條)/i) ||
@@ -816,14 +801,14 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Everything else goes to instructions
+        // All other lines go to instructions
         if (line.length > 3) {
             let cleaned = line.replace(/^\d+\.\s*/, '').replace(/^step\s*\d+:\s*/i, '').trim();
             if (cleaned) instructions.push(cleaned);
         }
     });
 
-    // Cleanup instructions
+    // Cleanup
     if (instructions.length > 0 && instructions[0].toLowerCase().includes(name.toLowerCase())) {
         instructions.shift();
     }
@@ -862,6 +847,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
