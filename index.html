@@ -726,64 +726,82 @@
     let imageUrl = "";
     let ingredients = [];
     let instructions = [];
-    let inIngredientsSection = false;
-    let inInstructionsSection = false;
+    let inIngredients = false;
+    let inInstructions = false;
 
-    lines.forEach((line, index) => {
+    lines.forEach((line, idx) => {
         const lower = line.toLowerCase();
 
-        // Detect possible title / name (first non-empty line, or looks like title)
-        if (index === 0 && !lower.startsWith('-') && !/^\d/.test(line) && line.length > 5) {
+        // Extract image URL (jpg/png/gif/webp)
+        if (line.match(/^https?:\/\/.*\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i)) {
+            if (!imageUrl) imageUrl = line.split('?')[0]; // take clean URL
+            return;
+        }
+
+        // Detect title (first real line, not bullet/quantity)
+        if (idx < 5 && !lower.startsWith('-') && !/^\d/.test(line) && line.length > 8 && !lower.includes('prep') && !lower.includes('cook')) {
             name = line;
             return;
         }
 
-        // Detect image URLs (look for http/https ending in image extensions)
-        if (line.match(/^https?:\/\/.*\.(jpg|jpeg|png|gif|webp)$/i)) {
-            if (!imageUrl) imageUrl = line;  // take first one as main image
+        // Detect prep/cook/servings anywhere in text
+        if (lower.includes('prep') && (lower.includes('min') || lower.match(/\d+/))) {
+            const match = line.match(/(\d+)/);
+            if (match) prepTime = parseInt(match[1]) || 0;
+        }
+        if (lower.includes('cook') && (lower.includes('min') || lower.match(/\d+/))) {
+            const match = line.match(/(\d+)/);
+            if (match) cookTime = parseInt(match[1]) || 0;
+        }
+        if (lower.includes('serv') || lower.includes('serve') || lower.includes('portion')) {
+            const match = line.match(/(\d+)/);
+            if (match) servings = parseInt(match[1]) || 1;
+        }
+
+        // Section markers
+        if (lower.includes('ingredient') || lower === 'ingredients:' || lower === '材料:') {
+            inIngredients = true;
+            inInstructions = false;
+            return;
+        }
+        if (lower.includes('instruction') || lower.includes('step') || lower === 'instructions:' || lower === '做法:' || lower === 'steps:') {
+            inInstructions = true;
+            inIngredients = false;
             return;
         }
 
-        // Simple keyword detection for sections
-        if (lower.includes("ingredient") || lower.includes("材料") || lower === "ingredients:") {
-            inIngredientsSection = true;
-            inInstructionsSection = false;
-            return;
-        }
-        if (lower.includes("instruction") || lower.includes("step") || lower.includes("做法") || lower === "instructions:" || lower === "steps:") {
-            inInstructionsSection = true;
-            inIngredientsSection = false;
-            return;
-        }
-
-        // Try to parse as ingredient (common patterns)
-        if (inIngredientsSection || 
-            line.match(/^[-•*]/) || 
-            line.match(/^\d+(\.\d+)?\s*(cup|tbsp|tsp|gram|g|ml|piece|pcs|個|份)/i) ||
+        // Ingredient patterns
+        if (inIngredients ||
+            line.startsWith('-') || line.startsWith('•') || line.startsWith('*') ||
+            line.match(/^\d+(\.\d+)?\s*(cup|tsp|tbsp|gram|g|ml|kg|個|份|片|條)/i) ||
             line.match(/^\d+\s*[a-z]/i)) {
-            ingredients.push(line.replace(/^[-•*]\s*/, ''));  // clean bullet
+            // Clean bullet/number
+            let cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
+            if (cleaned) ingredients.push(cleaned);
             return;
         }
 
-        // Try to parse as instruction step
-        if (inInstructionsSection || 
-            line.match(/^\d+\.\s/) || 
+        // Instruction patterns
+        if (inInstructions ||
+            line.match(/^\d+\.\s/) ||
             line.match(/^step\s*\d+/i) ||
-            line.match(/^\d+\s*[a-z]/i) && index > 5) {  // heuristic
-            instructions.push(line.replace(/^\d+\.\s*/, ''));
+            line.match(/^\d+\s+[a-z]/i) && idx > 3) {
+            let cleaned = line.replace(/^\d+\.\s*/, '').replace(/^step\s*\d+:\s*/i, '');
+            if (cleaned) instructions.push(cleaned);
             return;
         }
 
-        // Fallback: add to instructions
-        instructions.push(line);
+        // Fallback - add to instructions if it looks like a sentence
+        if (line.length > 10 && !line.startsWith('http')) {
+            instructions.push(line);
+        }
     });
 
-    // If no instructions detected but lots of lines → treat as instructions
-    if (instructions.length === 0 && lines.length > 3) {
-        instructions = lines;
+    // Cleanup: remove duplicate title in steps
+    if (instructions.length > 0 && instructions[0].toLowerCase().includes(name.toLowerCase())) {
+        instructions.shift();
     }
 
-    // Create the recipe object
     const data = {
         name: name,
         cuisine: cuisine,
@@ -792,7 +810,7 @@
         servings: servings,
         imageUrl: imageUrl,
         ingredients: ingredients,
-        instructions: instructions,
+        instructions: instructions.length > 0 ? instructions : [rawText], // fallback
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         lastCooked: null,
         comments: []
@@ -800,12 +818,17 @@
 
     recipesRef.add(data)
         .then(() => {
-            alert("Pasted text saved as new recipe!\nName: " + name + "\nIngredients found: " + ingredients.length + "\nSteps found: " + instructions.length + "\nYou can edit it now.");
+            let msg = `Saved as: ${name}\n`;
+            if (ingredients.length > 0) msg += `Found ${ingredients.length} ingredients\n`;
+            if (instructions.length > 0) msg += `Found ${instructions.length} steps\n`;
+            if (imageUrl) msg += "Image link saved\n";
+            if (prepTime || cookTime || servings > 1) msg += "Time/servings detected\n";
+            alert(msg + "\nYou can edit it now.");
             textarea.value = '';
         })
         .catch(err => {
-            console.error("Paste save error:", err);
-            alert("Failed to save: " + err.message);
+            console.error("Paste save failed:", err);
+            alert("Save failed: " + err.message);
         });
 }
 
@@ -814,4 +837,5 @@
     </script>
 </body>
 </html>
+
 
