@@ -706,45 +706,112 @@
         }
 
         // NEW: Save pasted text as a recipe
-        function savePastedTextAsRecipe() {
-            const textarea = document.getElementById('pasteText');
-            const rawText = textarea.value.trim();
+       function savePastedTextAsRecipe() {
+    const textarea = document.getElementById('pasteText');
+    const rawText = textarea.value.trim();
 
-            if (!rawText) {
-                alert("Please paste some text first");
-                return;
-            }
+    if (!rawText) {
+        alert("Please paste some text first");
+        return;
+    }
 
-            const now = new Date();
-            const autoName = `Pasted Recipe - ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+    // Split into lines
+    const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
 
-            const data = {
-                name: autoName,
-                cuisine: "Other",
-                prepTime: 0,
-                cookTime: 0,
-                servings: 1,
-                imageUrl: "",
-                ingredients: [],
-                instructions: [rawText],  // entire pasted text as one instruction block
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                lastCooked: null,
-                comments: []
-            };
+    let name = "Pasted Recipe - " + new Date().toLocaleString();
+    let cuisine = "Other";
+    let prepTime = 0;
+    let cookTime = 0;
+    let servings = 1;
+    let imageUrl = "";
+    let ingredients = [];
+    let instructions = [];
+    let inIngredientsSection = false;
+    let inInstructionsSection = false;
 
-            recipesRef.add(data)
-                .then(() => {
-                    alert("Text saved as new recipe!\nName: " + autoName + "\nYou can edit it now.");
-                    textarea.value = '';
-                })
-                .catch(err => {
-                    console.error("Paste save error:", err);
-                    alert("Failed to save: " + err.message);
-                });
+    lines.forEach((line, index) => {
+        const lower = line.toLowerCase();
+
+        // Detect possible title / name (first non-empty line, or looks like title)
+        if (index === 0 && !lower.startsWith('-') && !/^\d/.test(line) && line.length > 5) {
+            name = line;
+            return;
         }
+
+        // Detect image URLs (look for http/https ending in image extensions)
+        if (line.match(/^https?:\/\/.*\.(jpg|jpeg|png|gif|webp)$/i)) {
+            if (!imageUrl) imageUrl = line;  // take first one as main image
+            return;
+        }
+
+        // Simple keyword detection for sections
+        if (lower.includes("ingredient") || lower.includes("材料") || lower === "ingredients:") {
+            inIngredientsSection = true;
+            inInstructionsSection = false;
+            return;
+        }
+        if (lower.includes("instruction") || lower.includes("step") || lower.includes("做法") || lower === "instructions:" || lower === "steps:") {
+            inInstructionsSection = true;
+            inIngredientsSection = false;
+            return;
+        }
+
+        // Try to parse as ingredient (common patterns)
+        if (inIngredientsSection || 
+            line.match(/^[-•*]/) || 
+            line.match(/^\d+(\.\d+)?\s*(cup|tbsp|tsp|gram|g|ml|piece|pcs|個|份)/i) ||
+            line.match(/^\d+\s*[a-z]/i)) {
+            ingredients.push(line.replace(/^[-•*]\s*/, ''));  // clean bullet
+            return;
+        }
+
+        // Try to parse as instruction step
+        if (inInstructionsSection || 
+            line.match(/^\d+\.\s/) || 
+            line.match(/^step\s*\d+/i) ||
+            line.match(/^\d+\s*[a-z]/i) && index > 5) {  // heuristic
+            instructions.push(line.replace(/^\d+\.\s*/, ''));
+            return;
+        }
+
+        // Fallback: add to instructions
+        instructions.push(line);
+    });
+
+    // If no instructions detected but lots of lines → treat as instructions
+    if (instructions.length === 0 && lines.length > 3) {
+        instructions = lines;
+    }
+
+    // Create the recipe object
+    const data = {
+        name: name,
+        cuisine: cuisine,
+        prepTime: prepTime,
+        cookTime: cookTime,
+        servings: servings,
+        imageUrl: imageUrl,
+        ingredients: ingredients,
+        instructions: instructions,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        lastCooked: null,
+        comments: []
+    };
+
+    recipesRef.add(data)
+        .then(() => {
+            alert("Pasted text saved as new recipe!\nName: " + name + "\nIngredients found: " + ingredients.length + "\nSteps found: " + instructions.length + "\nYou can edit it now.");
+            textarea.value = '';
+        })
+        .catch(err => {
+            console.error("Paste save error:", err);
+            alert("Failed to save: " + err.message);
+        });
+}
 
         // Initial render
         renderRecipes();
     </script>
 </body>
 </html>
+
