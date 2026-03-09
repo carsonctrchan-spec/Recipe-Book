@@ -715,6 +715,7 @@ function savePastedTextAsRecipe() {
         return;
     }
 
+    // Split into lines
     const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
 
     let name = "Pasted Recipe - " + new Date().toLocaleString();
@@ -726,74 +727,61 @@ function savePastedTextAsRecipe() {
     let ingredients = [];
     let instructions = [];
 
-    // Phase 1: Extract metadata - skip these lines
-    const contentLines = [];
+    // Cuisine keywords (fallback)
+    const cuisineKeywords = {
+        italian: ["italian", "pasta", "pizza", "carbonara"],
+        chinese: ["chinese", "stir fry", "dumpling", "fried rice"],
+        mexican: ["mexican", "taco", "burrito"],
+        indian: ["indian", "curry", "masala"],
+        french: ["french", "croissant", "ratatouille"],
+        japanese: ["japanese", "sushi", "ramen"],
+        thai: ["thai", "pad thai", "tom yum"],
+        american: ["american", "burger", "bbq", "cookie"],
+        mediterranean: ["mediterranean", "greek", "hummus"],
+        dessert: ["dessert", "cake", "cookie", "pie", "chocolate", "brownie"]
+    };
 
-    lines.forEach(line => {
+    lines.forEach((line, idx) => {
         const lower = line.toLowerCase();
 
-        // Name
-        if (lower.startsWith('name:') || lower.startsWith('標題:') || lower.startsWith('recipe name:') || lower.startsWith('title:')) {
-            name = line.split(/[:：]/)[1]?.trim() || line.trim();
-            return;
+        // Name from first good line (lenient)
+        if (idx < 8 && name.startsWith("Pasted") && line.length > 8 && 
+            !lower.includes('prep') && !lower.includes('cook') && !lower.includes('serv') &&
+            !lower.includes('time') && !lower.includes('min') && !lower.includes('ingredient') &&
+            !lower.includes('instruction') && !line.startsWith('-') && !/^\d/.test(line)) {
+            name = line.trim();
         }
 
-        // Cuisine
-        if (lower.startsWith('cuisine:') || lower.startsWith('類型:') || lower.startsWith('類別:')) {
-            const value = line.split(/[:：]/)[1]?.trim() || '';
-            if (value) cuisine = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
-            return;
-        }
-
-        // Image
+        // Image URL
         const imgMatch = line.match(/https?:\/\/[^\s"']+\.(jpg|jpeg|png|gif|webp|bmp)(\?[^\s"']*)?/gi);
         if (imgMatch && !imageUrl) {
             imageUrl = imgMatch[0].split('?')[0];
-            return;
-        }
-        if (line.startsWith('Image:') || line.startsWith('Photo:') || line.startsWith('圖片:')) {
-            const urlPart = line.replace(/^Image:\s*/i, '').replace(/^Photo:\s*/i, '').replace(/^圖片:\s*/i, '').trim();
-            if (urlPart.startsWith('https://')) {
-                imageUrl = urlPart.split(' ')[0];
-                return;
-            }
         }
 
         // Prep / Cook / Servings
         if (lower.includes('prep') || lower.includes('preparation')) {
             const match = line.match(/(\d+)/);
             if (match) prepTime = parseInt(match[1]) || 0;
-            return;
         }
         if (lower.includes('cook') || lower.includes('bake') || lower.includes('oven')) {
             const match = line.match(/(\d+)/);
             if (match) cookTime = parseInt(match[1]) || 0;
-            return;
         }
         if (lower.includes('serv') || lower.includes('serve') || lower.includes('portion') || lower.includes('makes')) {
             const match = line.match(/(\d+)/);
             if (match) servings = parseInt(match[1]) || 1;
-            return;
         }
 
-        contentLines.push(line);
-    });
-
-    // Phase 2: Split content into ingredients & instructions
-    let inIngredients = false;
-
-    contentLines.forEach(line => {
-        const lower = line.toLowerCase();
-
-        // Detect ingredients start
-        if (lower.includes('ingredient') || lower === 'ingredients:' || lower === '材料:' || lower.includes('配料')) {
-            inIngredients = true;
-            return;
+        // Cuisine fallback
+        for (const [key, words] of Object.entries(cuisineKeywords)) {
+            if (words.some(w => lower.includes(w))) {
+                cuisine = key.charAt(0).toUpperCase() + key.slice(1);
+                break;
+            }
         }
 
-        // Add to ingredients if pattern matches
-        if (inIngredients || 
-            line.startsWith('-') || line.startsWith('•') || line.startsWith('*') ||
+        // Ingredients
+        if (line.startsWith('-') || line.startsWith('•') || line.startsWith('*') ||
             line.match(/^\d+(\.\d+)?\s*(cup|tsp|tbsp|gram|g|ml|kg|個|份|片|條)/i) ||
             line.match(/^\d+\s*[a-z]/i)) {
             let cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
@@ -801,8 +789,8 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // All other lines go to instructions
-        if (line.length > 3) {
+        // Instructions - add almost everything else
+        if (line.length > 5 && !line.startsWith('https://')) {
             let cleaned = line.replace(/^\d+\.\s*/, '').replace(/^step\s*\d+:\s*/i, '').trim();
             if (cleaned) instructions.push(cleaned);
         }
@@ -847,6 +835,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
