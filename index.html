@@ -730,7 +730,7 @@ function savePastedTextAsRecipe() {
     lines.forEach(line => {
         const lower = line.toLowerCase();
 
-        // Extract metadata
+        // Metadata extraction
         if (lower.startsWith('name:')) {
             name = line.split(/[:：]/)[1]?.trim() || line.trim();
             return;
@@ -749,9 +749,7 @@ function savePastedTextAsRecipe() {
         }
         if (line.startsWith('Image:') || line.startsWith('Photo:') || line.startsWith('圖片:')) {
             const urlPart = line.split(/[:：]/)[1]?.trim() || line.trim();
-            if (urlPart.startsWith('https://')) {
-                imageUrl = urlPart;
-            }
+            if (urlPart.startsWith('https://')) imageUrl = urlPart;
             return;
         }
 
@@ -785,9 +783,9 @@ function savePastedTextAsRecipe() {
             }
         }
 
-        // Instructions: collect every line after "Instructions:"
+        // Instructions: every non-empty line after "Instructions:" becomes one step
         if (collectingInstructions && line.length > 3) {
-            let cleaned = line.replace(/^\d+\.\s*/, '').trim();
+            let cleaned = line.replace(/^\d+\.\s*/, '').trim();  // remove leading number if present
             if (cleaned) instructions.push(cleaned);
         }
     });
@@ -831,6 +829,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
