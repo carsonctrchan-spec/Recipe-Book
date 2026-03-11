@@ -730,7 +730,7 @@ function savePastedTextAsRecipe() {
     lines.forEach(line => {
         const lower = line.toLowerCase();
 
-        // Metadata extraction
+        // Metadata
         if (lower.startsWith('name:')) {
             name = line.split(/[:：]/)[1]?.trim() || line.trim();
             return;
@@ -742,12 +742,7 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        const imgMatch = line.match(/https?:\/\/[^\s"']+\.(jpg|jpeg|png|gif|webp|bmp)(\?[^\s"']*)?/gi);
-        if (imgMatch && !imageUrl) {
-            imageUrl = imgMatch[0].split('?')[0];
-            return;
-        }
-        if (line.startsWith('Image:') || line.startsWith('Photo:') || line.startsWith('圖片:')) {
+        if (lower.startsWith('image:')) {
             const urlPart = line.split(/[:：]/)[1]?.trim() || line.trim();
             if (urlPart.startsWith('https://')) imageUrl = urlPart;
             return;
@@ -770,7 +765,7 @@ function savePastedTextAsRecipe() {
         }
 
         // Start collecting instructions
-        if (lower.startsWith('instructions:')) {
+        if (lower.includes('instructions:')) {
             collectingInstructions = true;
             return;
         }
@@ -778,14 +773,14 @@ function savePastedTextAsRecipe() {
         // Ingredients (before instructions)
         if (!collectingInstructions) {
             let cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
-            if (cleaned && line.match(/^\d+(\.\d+)?\s*/)) {
+            if (cleaned && (line.startsWith('-') || line.match(/^\d+(\.\d+)?\s*/))) {
                 ingredients.push(cleaned);
             }
         }
 
         // Instructions: every non-empty line after "Instructions:" becomes one step
         if (collectingInstructions && line.length > 3) {
-            let cleaned = line.replace(/^\d+\.\s*/, '').trim();  // remove leading number if present
+            let cleaned = line.replace(/^\d+\.\s*/, '').trim();
             if (cleaned) instructions.push(cleaned);
         }
     });
@@ -829,6 +824,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
