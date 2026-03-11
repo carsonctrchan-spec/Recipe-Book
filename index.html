@@ -779,8 +779,8 @@ function savePastedTextAsRecipe() {
         }
 
         // Instructions: EVERY non-empty line after "Instructions:" is one step
-        if (collectingInstructions && line.length > 3) {
-            let cleaned = line.replace(/^\d+\.\s*/, '').trim();
+if (collectingInstructions) {
+    let cleaned = line.replace(/^\d+\.\s*/, '').trim();
             if (cleaned) instructions.push(cleaned);
         }
     });
@@ -824,6 +824,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
