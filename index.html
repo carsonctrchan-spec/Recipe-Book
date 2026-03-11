@@ -764,7 +764,7 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Start collecting instructions when we hit "Instructions:"
+        // Start collecting instructions
         if (lower.includes('instructions:')) {
             collectingInstructions = true;
             return;
@@ -780,7 +780,11 @@ function savePastedTextAsRecipe() {
 
         // Instructions: EVERY non-empty line after "Instructions:" is one step
         if (collectingInstructions && line.length > 3) {
-            let cleaned = line.replace(/^\d+\.\s*/, '').trim();  // remove leading number if present
+            // Only remove leading number if it's followed by space (standard format)
+            let cleaned = line;
+            if (line.match(/^\d+\.\s/)) {
+                cleaned = line.replace(/^\d+\.\s*/, '').trim();
+            }
             if (cleaned) instructions.push(cleaned);
         }
     });
@@ -824,6 +828,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
