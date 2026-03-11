@@ -730,7 +730,7 @@ function savePastedTextAsRecipe() {
     lines.forEach(line => {
         const lower = line.toLowerCase();
 
-        // Metadata
+        // Extract metadata first
         if (lower.startsWith('name:')) {
             name = line.split(/[:：]/)[1]?.trim() || line.trim();
             return;
@@ -765,7 +765,7 @@ function savePastedTextAsRecipe() {
         }
 
         // Start collecting instructions
-        if (lower.includes('instructions:')) {
+        if (lower.startsWith('instructions:')) {
             collectingInstructions = true;
             return;
         }
@@ -778,7 +778,7 @@ function savePastedTextAsRecipe() {
             }
         }
 
-        // Instructions: every non-empty line after "Instructions:" becomes one step
+        // Instructions: EVERY non-empty line after "Instructions:" is one step
         if (collectingInstructions && line.length > 3) {
             let cleaned = line.replace(/^\d+\.\s*/, '').trim();
             if (cleaned) instructions.push(cleaned);
@@ -824,6 +824,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
