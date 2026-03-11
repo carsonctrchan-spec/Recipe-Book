@@ -730,7 +730,7 @@ function savePastedTextAsRecipe() {
     lines.forEach(line => {
         const lower = line.toLowerCase();
 
-        // Metadata extraction
+        // Extract metadata (skip these lines)
         if (lower.startsWith('name:')) {
             name = line.split(/[:：]/)[1]?.trim() || line.trim();
             return;
@@ -764,8 +764,8 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Start collecting instructions
-        if (lower.includes('instructions:')) {
+        // Start collecting instructions on any line with "instruction" or "step"
+        if (!collectingInstructions && (lower.includes('instruction') || lower.includes('step') || lower.includes('做法') || lower.includes('步驟'))) {
             collectingInstructions = true;
             return;
         }
@@ -773,18 +773,14 @@ function savePastedTextAsRecipe() {
         // Ingredients (before instructions)
         if (!collectingInstructions) {
             let cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
-            if (cleaned && (line.match(/^\d+(\.\d+)?\s*/) || line.startsWith('-') || line.startsWith('•'))) {
+            if (cleaned && line.match(/^\d+(\.\d+)?\s*/) || line.startsWith('-') || line.startsWith('•')) {
                 ingredients.push(cleaned);
             }
         }
 
-        // Instructions: EVERY non-empty line after "Instructions:" is one step
+        // Instructions: EVERY non-empty line after trigger is one step
         if (collectingInstructions && line.length > 3) {
-            // Only remove leading number if it's followed by space (standard format)
-            let cleaned = line;
-            if (line.match(/^\d+\.\s/)) {
-                cleaned = line.replace(/^\d+\.\s*/, '').trim();
-            }
+            let cleaned = line.replace(/^\d+\.\s*/, '').trim(); // remove leading number only
             if (cleaned) instructions.push(cleaned);
         }
     });
@@ -828,6 +824,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
