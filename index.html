@@ -764,25 +764,34 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Start collecting instructions
-        if (lower.startsWith('instructions:')) {
-            collectingInstructions = true;
-            return;
-        }
+     // ── Section switches ───────────────────────────────────────
+if (/^(instructions|steps|directions|method|how to):/i.test(lower)) {
+    collectingInstructions = true;
+    return;
+}
+if (/^(ingredients|ingredient|材料):/i.test(lower)) {
+    collectingInstructions = false;
+    return;
+}
 
-        // Ingredients (before instructions)
-        if (!collectingInstructions) {
-            let cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
-            if (cleaned && (line.startsWith('-') || line.match(/^\d+(\.\d+)?\s*/))) {
-                ingredients.push(cleaned);
-            }
-        }
+// Stop instructions collection when we hit image or URL-like line
+if (lower.includes('image:') || lower.match(/^https?:\/\//) || lower.startsWith('photo:')) {
+    collectingInstructions = false;
+    // still process metadata if it's image
+    if (lower.startsWith('image:')) {
+        const urlPart = line.split(/[:：]/, 2)[1]?.trim() || line.trim();
+        if (urlPart.startsWith('http')) imageUrl = urlPart;
+    }
+    return;
+}
 
-        // Instructions: EVERY non-empty line after "Instructions:" is one step
-if (collectingInstructions) {
-    let cleaned = line.replace(/^\d+\.\s*/, '').trim();
-            if (cleaned) instructions.push(cleaned);
-        }
+// ── Collect instructions (no length cutoff anymore)
+if (collectingInstructions && line.trim()) {
+    let cleaned = line
+        .replace(/^\s*\d+\.?\s*[-•*→]?\s*/, '')
+        .trim();
+    if (cleaned) instructions.push(cleaned);
+}
     });
 
     // Cleanup
@@ -824,6 +833,7 @@ if (collectingInstructions) {
     </script>
 </body>
 </html>
+
 
 
 
