@@ -730,7 +730,7 @@ function savePastedTextAsRecipe() {
     lines.forEach(line => {
         const lower = line.toLowerCase();
 
-        // Extract metadata (skip these lines)
+        // Metadata extraction
         if (lower.startsWith('name:')) {
             name = line.split(/[:：]/)[1]?.trim() || line.trim();
             return;
@@ -764,23 +764,28 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Start collecting instructions on any line with "instruction" or "step"
-        if (!collectingInstructions && (lower.includes('instruction') || lower.includes('step') || lower.includes('做法') || lower.includes('步驟'))) {
+        // Trigger instructions collection on "Instructions:" or any numbered line
+        if (!collectingInstructions && (lower.includes('instructions:') || line.match(/^\d+\.\s/))) {
             collectingInstructions = true;
+            // If this line is the first numbered step, add it too
+            if (line.match(/^\d+\.\s/)) {
+                let cleaned = line.replace(/^\d+\.\s*/, '').trim();
+                if (cleaned) instructions.push(cleaned);
+            }
             return;
         }
 
         // Ingredients (before instructions)
         if (!collectingInstructions) {
             let cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
-            if (cleaned && line.match(/^\d+(\.\d+)?\s*/) || line.startsWith('-') || line.startsWith('•')) {
+            if (cleaned && (line.match(/^\d+(\.\d+)?\s*/) || line.startsWith('-') || line.startsWith('•'))) {
                 ingredients.push(cleaned);
             }
         }
 
         // Instructions: EVERY non-empty line after trigger is one step
         if (collectingInstructions && line.length > 3) {
-            let cleaned = line.replace(/^\d+\.\s*/, '').trim(); // remove leading number only
+            let cleaned = line.replace(/^\d+\.\s*/, '').trim();
             if (cleaned) instructions.push(cleaned);
         }
     });
@@ -824,6 +829,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
