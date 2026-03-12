@@ -708,14 +708,14 @@
         // NEW: Save pasted text as a recipe
 function savePastedTextAsRecipe() {
     const textarea = document.getElementById('pasteText');
-    const rawText = textarea.value;
+    const text = textarea.value;
 
-    if (!rawText.trim()) {
+    if (!text.trim()) {
         alert("Please paste some text first");
         return;
     }
 
-    const lines = rawText.split('\n');
+    const lines = text.split('\n');
 
     let name = "Pasted Recipe - " + new Date().toLocaleString();
     let cuisine = "Other";
@@ -725,89 +725,105 @@ function savePastedTextAsRecipe() {
     let imageUrl = "";
     let ingredients = [];
     let instructions = [];
-    let collectingInstructions = false;
+    let currentSection = null;  // "ingredients" or "instructions"
 
-    lines.forEach(rawLine => {
-        const trimmed = rawLine.trim();
-        const lowerTrimmed = trimmed.toLowerCase();
+    lines.forEach(line => {
+        const trimmed = line.trim();
+        const lower = trimmed.toLowerCase();
 
-        if (!trimmed) return; // skip blank lines
+        // Skip empty lines
+        if (!trimmed) return;
 
-        // Metadata (using trimmed for detection)
-        if (lowerTrimmed.startsWith('name:')) {
-            name = trimmed.split(/[:：]/)[1]?.trim() || trimmed.trim();
+        // ── Metadata ──────────────────────────────────────
+        if (lower.startsWith('name:')) {
+            name = trimmed.replace(/^name:\s*/i, '').trim();
             return;
         }
 
-        if (lowerTrimmed.startsWith('cuisine:')) {
-            const value = trimmed.split(/[:：]/)[1]?.trim() || '';
-            if (value) cuisine = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+        if (lower.startsWith('cuisine:')) {
+            cuisine = trimmed.replace(/^cuisine:\s*/i, '').trim();
             return;
         }
 
-        if (lowerTrimmed.startsWith('image:')) {
-            const urlPart = trimmed.split(/[:：]/)[1]?.trim() || trimmed.trim();
-            if (urlPart.startsWith('https://')) imageUrl = urlPart;
+        if (lower.startsWith('prep time') || lower.startsWith('prep:')) {
+            const num = trimmed.match(/\d+/);
+            if (num) prepTime = parseInt(num[0], 10);
             return;
         }
 
-        if (lowerTrimmed.includes('prep') || lowerTrimmed.includes('preparation')) {
-            const match = trimmed.match(/(\d+)/);
-            if (match) prepTime = parseInt(match[1]) || 0;
-            return;
-        }
-        if (lowerTrimmed.includes('cook') || lowerTrimmed.includes('bake') || lowerTrimmed.includes('oven')) {
-            const match = trimmed.match(/(\d+)/);
-            if (match) cookTime = parseInt(match[1]) || 0;
-            return;
-        }
-        if (lowerTrimmed.includes('serv') || lowerTrimmed.includes('serve') || lowerTrimmed.includes('portion') || lowerTrimmed.includes('makes')) {
-            const match = trimmed.match(/(\d+)/);
-            if (match) servings = parseInt(match[1]) || 1;
+        if (lower.startsWith('cook time') || lower.startsWith('cook:')) {
+            const num = trimmed.match(/\d+/);
+            if (num) cookTime = parseInt(num[0], 10);
             return;
         }
 
-        // Trigger instructions collection (very loose)
-        if (!collectingInstructions && (lowerTrimmed.includes('instructions') || trimmed.match(/^\s*\d+\.\s/))) {
-            collectingInstructions = true;
-            // Add the trigger line if it's a step
-            if (trimmed.match(/^\s*\d+\.\s/)) {
-                let cleaned = trimmed.replace(/^\s*\d+\.\s*/, '');
+        if (lower.startsWith('servings') || lower.startsWith('serves')) {
+            const num = trimmed.match(/\d+/);
+            if (num) servings = parseInt(num[0], 10);
+            return;
+        }
+
+        if (lower.startsWith('image:')) {
+            imageUrl = trimmed.replace(/^image:\s*/i, '').trim();
+            return;
+        }
+
+        // ── Section headers ───────────────────────────────
+        if (lower.includes('ingredients') || lower === 'ingredients:') {
+            currentSection = 'ingredients';
+            return;
+        }
+
+        if (lower.includes('instructions') || lower === 'instructions:') {
+            currentSection = 'instructions';
+            return;
+        }
+
+        // ── Collect ingredients ───────────────────────────
+        if (currentSection === 'ingredients') {
+            // Remove bullet or number prefix
+            let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+            if (cleaned) ingredients.push(cleaned);
+            return;
+        }
+
+        // ── Collect instructions ──────────────────────────
+        if (currentSection === 'instructions') {
+            // Remove leading number prefix (1. 2. etc.)
+            let cleaned = trimmed.replace(/^\d+\.\s*/, '').trim();
+            // If there's still content, add it as a step
+            if (cleaned) {
+                instructions.push(cleaned);
+            }
+            return;
+        }
+
+        // Fallback: if no section yet, try to guess
+        if (!currentSection) {
+            if (trimmed.match(/^\d+(\.\d+)?\s*(cup|tsp|tbsp|gram|g|ml|kg)/i) || trimmed.match(/^\s*[-•*]/)) {
+                let cleaned = trimmed.replace(/^[-•*]\s*/, '').trim();
+                if (cleaned) ingredients.push(cleaned);
+            } else if (trimmed.match(/^\d+\.\s/) || trimmed.length > 15) {
+                let cleaned = trimmed.replace(/^\d+\.\s*/, '').trim();
                 if (cleaned) instructions.push(cleaned);
             }
-            return;
-        }
-
-        // Ingredients (before instructions)
-        if (!collectingInstructions) {
-            let cleaned = trimmed.replace(/^[-•*]\s*/, '');
-            if (cleaned && (trimmed.match(/^\s*\d+(\.\d+)?\s*/) || trimmed.match(/^\s*[-•*]/))) {
-                ingredients.push(cleaned);
-            }
-        }
-
-        // Instructions: every line with content after trigger is one step
-        if (collectingInstructions && trimmed.length > 0) {
-            // Remove only leading number + spaces, keep the rest (including spaces and °C)
-            let cleaned = rawLine.replace(/^\s*\d+\.\s*/, '');
-            if (cleaned.trim()) instructions.push(cleaned);
         }
     });
 
-    // Cleanup
-    if (instructions.length > 0 && instructions[0].trim().toLowerCase().includes(name.toLowerCase())) {
+    // Final cleanup
+    if (instructions.length > 0 && instructions[0].toLowerCase().includes(name.toLowerCase())) {
         instructions.shift();
     }
 
     const data = {
-        name: name,
-        cuisine: cuisine,
-        prepTime: prepTime,
-        cookTime: cookTime,
-        servings: servings,
-        imageUrl: imageUrl,
-        ingredients: ingredients,
-        instructions: instructions,
+        name,
+        cuisine,
+        prepTime,
+        cookTime,
+        servings,
+        imageUrl,
+        ingredients,
+        instructions,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         lastCooked: null,
         comments: []
@@ -815,17 +831,21 @@ function savePastedTextAsRecipe() {
 
     recipesRef.add(data)
         .then(() => {
-            let msg = `Saved!\n\nName: ${name}\nCuisine: ${cuisine}\n`;
-            msg += `Prep: ${prepTime} min | Cook: ${cookTime} min | Servings: ${servings}\n`;
-            msg += `Ingredients: ${ingredients.length} items\n`;
-            msg += `Instructions: ${instructions.length} steps\n`;
-            if (imageUrl) msg += `Image: ${imageUrl}\n(should show in card)`;
-            alert(msg + "\nCheck the new card — edit if needed.");
+            alert(
+                `Saved!\n\n` +
+                `Name: ${name}\n` +
+                `Cuisine: ${cuisine}\n` +
+                `Prep: ${prepTime} min | Cook: ${cookTime} min | Servings: ${servings}\n` +
+                `Ingredients: ${ingredients.length} items\n` +
+                `Instructions: ${instructions.length} steps\n` +
+                (imageUrl ? `Image saved\n` : '') +
+                `\nCheck the new card — edit if needed.`
+            );
             textarea.value = '';
         })
         .catch(err => {
-            console.error("Save failed:", err);
-            alert("Failed to save: " + err.message);
+            console.error("Save error:", err);
+            alert("Failed to save:\n" + err.message);
         });
 }
         // Initial render
@@ -833,6 +853,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
