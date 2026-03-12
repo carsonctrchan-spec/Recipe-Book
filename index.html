@@ -768,7 +768,7 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Section switching - very loose
+        // Section switching - loose for your paste
         if (lower.includes('ingredients')) {
             inIngredients = true;
             inInstructions = false;
@@ -777,7 +777,7 @@ function savePastedTextAsRecipe() {
 
         if (lower.includes('instructions')) {
             inInstructions = true;
-            inIngredients = false;  // IMPORTANT: STOP ingredients here
+            inIngredients = false;  // STOP adding to ingredients here!
             return;
         }
 
@@ -840,6 +840,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
