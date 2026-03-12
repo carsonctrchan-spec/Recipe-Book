@@ -727,47 +727,48 @@ function savePastedTextAsRecipe() {
     let instructions = [];
     let collectingInstructions = false;
 
-    lines.forEach(line => {
-        const trimmedLower = line.trim().toLowerCase();
+    lines.forEach(rawLine => {
+        const line = rawLine.trimEnd(); // only remove trailing spaces
+        const lower = line.toLowerCase();
 
-        // Metadata extraction (trim for detection, but keep original for value)
-        if (trimmedLower.startsWith('name:')) {
+        // Metadata
+        if (lower.startsWith('name:')) {
             name = line.split(/[:：]/)[1]?.trim() || line.trim();
             return;
         }
 
-        if (trimmedLower.startsWith('cuisine:')) {
+        if (lower.startsWith('cuisine:')) {
             const value = line.split(/[:：]/)[1]?.trim() || '';
             if (value) cuisine = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
             return;
         }
 
-        if (trimmedLower.startsWith('image:')) {
+        if (lower.startsWith('image:')) {
             const urlPart = line.split(/[:：]/)[1]?.trim() || line.trim();
             if (urlPart.startsWith('https://')) imageUrl = urlPart;
             return;
         }
 
-        if (trimmedLower.includes('prep') || trimmedLower.includes('preparation')) {
-            const match = trimmedLower.match(/(\d+)/);
+        if (lower.includes('prep') || lower.includes('preparation')) {
+            const match = lower.match(/(\d+)/);
             if (match) prepTime = parseInt(match[1]) || 0;
             return;
         }
-        if (trimmedLower.includes('cook') || trimmedLower.includes('bake') || trimmedLower.includes('oven')) {
-            const match = trimmedLower.match(/(\d+)/);
+        if (lower.includes('cook') || lower.includes('bake') || lower.includes('oven')) {
+            const match = lower.match(/(\d+)/);
             if (match) cookTime = parseInt(match[1]) || 0;
             return;
         }
-        if (trimmedLower.includes('serv') || trimmedLower.includes('serve') || trimmedLower.includes('portion') || trimmedLower.includes('makes')) {
-            const match = trimmedLower.match(/(\d+)/);
+        if (lower.includes('serv') || lower.includes('serve') || lower.includes('portion') || lower.includes('makes')) {
+            const match = lower.match(/(\d+)/);
             if (match) servings = parseInt(match[1]) || 1;
             return;
         }
 
         // Trigger instructions collection
-        if (!collectingInstructions && (trimmedLower.includes('instructions:') || line.match(/^\s*\d+\.\s/))) {
+        if (!collectingInstructions && (lower.includes('instructions:') || line.match(/^\s*\d+\.\s/))) {
             collectingInstructions = true;
-            // If this line is a numbered step, add it
+            // If this line is already a numbered step, add it
             if (line.match(/^\s*\d+\.\s/)) {
                 let cleaned = line.replace(/^\s*\d+\.\s*/, '');
                 if (cleaned.trim()) instructions.push(cleaned);
@@ -783,9 +784,9 @@ function savePastedTextAsRecipe() {
             }
         }
 
-        // Instructions: every non-empty line after trigger is one step
-        if (collectingInstructions && line.trim().length > 1) {
-            let cleaned = line.replace(/^\s*\d+\.\s*/, '');  // only remove leading number + space
+        // Instructions: EVERY line with content after trigger is one step
+        if (collectingInstructions && line.trim().length > 0) {
+            let cleaned = line.replace(/^\s*\d+\.\s*/, ''); // remove leading number + space only
             if (cleaned.trim()) instructions.push(cleaned);
         }
     });
@@ -829,6 +830,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
