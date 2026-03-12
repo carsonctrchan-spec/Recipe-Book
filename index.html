@@ -715,6 +715,9 @@ function savePastedTextAsRecipe() {
         return;
     }
 
+    console.log("[PARSE START] Raw text length:", text.length);
+    console.log("[PARSE START] First 200 chars:", text.substring(0, 200));
+
     const lines = text.split('\n');
 
     let name = "Pasted Recipe - " + new Date().toLocaleString();
@@ -728,79 +731,98 @@ function savePastedTextAsRecipe() {
     let inIngredients = false;
     let inInstructions = false;
 
-    lines.forEach(line => {
-        const trimmed = line.trim();
+    lines.forEach((rawLine, index) => {
+        const trimmed = rawLine.trim();
         const lower = trimmed.toLowerCase();
 
         if (!trimmed) return;
 
+        console.log(`[Line ${index+1}] Raw: "${rawLine.substring(0, 60)}..."`);
+
         // Metadata
         if (lower.startsWith('name:')) {
             name = trimmed.replace(/^name:\s*/i, '').trim();
+            console.log("[Metadata] Name set:", name);
             return;
         }
 
         if (lower.startsWith('cuisine:')) {
             cuisine = trimmed.replace(/^cuisine:\s*/i, '').trim();
+            console.log("[Metadata] Cuisine set:", cuisine);
             return;
         }
 
         if (lower.startsWith('prep time') || lower.startsWith('prep:')) {
             const num = trimmed.match(/\d+/);
-            if (num) prepTime = parseInt(num[0], 10);
+            if (num) {
+                prepTime = parseInt(num[0], 10);
+                console.log("[Metadata] Prep:", prepTime);
+            }
             return;
         }
 
         if (lower.startsWith('cook time') || lower.startsWith('cook:')) {
             const num = trimmed.match(/\d+/);
-            if (num) cookTime = parseInt(num[0], 10);
+            if (num) {
+                cookTime = parseInt(num[0], 10);
+                console.log("[Metadata] Cook:", cookTime);
+            }
             return;
         }
 
         if (lower.startsWith('servings') || lower.startsWith('serves')) {
             const num = trimmed.match(/\d+/);
-            if (num) servings = parseInt(num[0], 10);
+            if (num) {
+                servings = parseInt(num[0], 10);
+                console.log("[Metadata] Servings:", servings);
+            }
             return;
         }
 
         if (lower.startsWith('image:')) {
             imageUrl = trimmed.replace(/^image:\s*/i, '').trim();
+            console.log("[Metadata] Image:", imageUrl);
             return;
         }
 
-        // Section switching - very loose
+        // Section switching - ultra loose
         if (lower.includes('ingredients')) {
             inIngredients = true;
             inInstructions = false;
+            console.log("[SECTION] Entered ingredients");
             return;
         }
 
         if (lower.includes('instructions')) {
             inInstructions = true;
-            inIngredients = false; // stop ingredients here
+            inIngredients = false;
+            console.log("[SECTION] Entered instructions");
             return;
         }
 
         // Ingredients
         if (inIngredients) {
             let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
-            if (cleaned) ingredients.push(cleaned);
+            if (cleaned) {
+                ingredients.push(cleaned);
+                console.log("[ADD] Ingredient:", cleaned);
+            }
             return;
         }
 
-        // Instructions - add every line with content, only strip leading number + space
+        // Instructions
         if (inInstructions) {
-            // Remove leading whitespace + number + optional space
-            let cleaned = line.replace(/^\s*\d+\.\s*/, '');
-            if (cleaned.trim()) instructions.push(cleaned);
+            let cleaned = rawLine.replace(/^\s*\d+\.\s*/, ''); // keep original spaces
+            if (cleaned.trim()) {
+                instructions.push(cleaned);
+                console.log("[ADD] Instruction:", cleaned.trim());
+            }
             return;
         }
     });
 
-    // Cleanup
-    if (instructions.length > 0 && instructions[0].trim().toLowerCase().includes(name.toLowerCase())) {
-        instructions.shift();
-    }
+    console.log("[FINAL] Ingredients:", ingredients);
+    console.log("[FINAL] Instructions:", instructions);
 
     const data = {
         name,
@@ -815,7 +837,7 @@ function savePastedTextAsRecipe() {
         lastCooked: null,
         comments: []
     };
-console.log("Final instructions:", instructions);
+
     recipesRef.add(data)
         .then(() => {
             alert(
@@ -840,6 +862,7 @@ console.log("Final instructions:", instructions);
     </script>
 </body>
 </html>
+
 
 
 
