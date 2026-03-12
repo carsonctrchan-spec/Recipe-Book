@@ -705,200 +705,117 @@
             }).join('');
         }
 
-        // NEW: Save pasted text as a recipe
-function savePastedTextAsRecipe() {
-    const textarea = document.getElementById('pasteText');
-    const text = textarea.value;
+        // Paste function (this is the one you were using)
+        function savePastedTextAsRecipe() {
+            const textarea = document.getElementById('pasteText');
+            const rawText = textarea.value.trim();
 
-    if (!text.trim()) {
-        alert("Please paste some text first");
-        return;
-    }
-
-    const lines = text.split('\n');
-
-    let name = "Pasted Recipe - " + new Date().toLocaleString();
-    let cuisine = "Other";
-    let prepTime = 0;
-    let cookTime = 0;
-    let servings = 1;
-    let imageUrl = "";
-    let ingredients = [];
-    let instructions = [];
-    let currentSection = null;
-
-    for (const rawLine of lines) {
-        const trimmed = rawLine.trim();
-        const lower = trimmed.toLowerCase();
-
-        if (!trimmed) continue;
-
-        // Metadata
-        if (lower.startsWith('name:')) {
-            name = trimmed.replace(/^name:\s*/i, '').trim();
-            continue;
-        }
-
-        if (lower.startsWith('cuisine:')) {
-            cuisine = trimmed.replace(/^cuisine:\s*/i, '').trim();
-            continue;
-        }
-
-        if (lower.startsWith('prep time') || lower.startsWith('prep:')) {
-            const num = trimmed.match(/\d+/);
-            if (num) prepTime = parseInt(num[0], 10);
-            continue;
-        }
-
-        if (lower.startsWith('cook time') || lower.startsWith('cook:')) {
-            const num = trimmed.match(/\d+/);
-            if (num) cookTime = parseInt(num[0], 10);
-            continue;
-        }
-
-        if (lower.startsWith('servings') || lower.startsWith('serves')) {
-            const num = trimmed.match(/\d+/);
-            if (num) servings = parseInt(num[0], 10);
-            continue;
-        }
-
-        if (lower.startsWith('image:')) {
-            imageUrl = trimmed.replace(/^image:\s*/i, '').trim();
-            continue;
-        }
-
-        // Section headers
-        if (lower.includes('ingredients') || lower === 'ingredients:') {
-            currentSection = 'ingredients';
-            continue;
-        }
-
-        if (lower.includes('instructions') || lower === 'instructions:') {
-            currentSection = 'instructions';
-            continue;
-        }
-
-        // Add to ingredients
-        if (currentSection === 'ingredients') {
-            let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
-            if (cleaned) ingredients.push(cleaned);
-            continue;
-        }
-
-        // Add to instructions
-        if (currentSection === 'instructions') {
-            // Keep original line, only strip leading number
-            let cleaned = rawLine.replace(/^\s*\d+\.\s*/, '');
-            if (cleaned.trim()) {
-                instructions.push(cleaned);
+            if (!rawText) {
+                alert("Please paste some text first");
+                return;
             }
-            continue;
-        }
 
-        // Fallback for lines before sections
-        if (!currentSection) {
-            let cleaned = trimmed.replace(/^[-•*]\s*/, '');
-            if (cleaned && trimmed.match(/^\d+(\.\d+)?\s*/)) {
-                ingredients.push(cleaned);
+            const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
+
+            let name = "Pasted Recipe - " + new Date().toLocaleString();
+            let cuisine = "Other";
+            let prepTime = 0;
+            let cookTime = 0;
+            let servings = 1;
+            let imageUrl = "";
+            let ingredients = [];
+            let instructions = [];
+
+            lines.forEach(line => {
+                const lower = line.toLowerCase();
+
+                if (lower.startsWith('name:')) {
+                    name = line.split(/[:：]/)[1]?.trim() || line.trim();
+                    return;
+                }
+
+                if (lower.startsWith('cuisine:')) {
+                    cuisine = line.split(/[:：]/)[1]?.trim() || line.trim();
+                    return;
+                }
+
+                if (lower.startsWith('prep time') || lower.startsWith('prep:')) {
+                    const num = line.match(/\d+/);
+                    if (num) prepTime = parseInt(num[0], 10);
+                    return;
+                }
+
+                if (lower.startsWith('cook time') || lower.startsWith('cook:')) {
+                    const num = line.match(/\d+/);
+                    if (num) cookTime = parseInt(num[0], 10);
+                    return;
+                }
+
+                if (lower.startsWith('servings') || lower.startsWith('serves')) {
+                    const num = line.match(/\d+/);
+                    if (num) servings = parseInt(num[0], 10);
+                    return;
+                }
+
+                if (lower.startsWith('image:')) {
+                    imageUrl = line.split(/[:：]/)[1]?.trim() || line.trim();
+                    return;
+                }
+
+                // Ingredients
+                if (lower.includes('ingredients') || lower === 'ingredients:') {
+                    return;
+                }
+
+                let cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+                if (cleaned && line.match(/^\d+(\.\d+)?\s*/)) {
+                    ingredients.push(cleaned);
+                    return;
+                }
+
+                // Instructions
+                if (lower.includes('instructions') || lower.includes('step')) {
+                    return;
+                }
+
+                if (line.match(/^\d+\.\s/)) {
+                    let cleaned = line.replace(/^\d+\.\s*/, '').trim();
+                    if (cleaned) instructions.push(cleaned);
+                }
+            });
+
+            // Cleanup
+            if (instructions.length > 0 && instructions[0].toLowerCase().includes(name.toLowerCase())) {
+                instructions.shift();
             }
+
+            const data = {
+                name: name,
+                cuisine: cuisine,
+                prepTime: prepTime,
+                cookTime: cookTime,
+                servings: servings,
+                imageUrl: imageUrl,
+                ingredients: ingredients,
+                instructions: instructions,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastCooked: null,
+                comments: []
+            };
+
+            recipesRef.add(data)
+                .then(() => {
+                    alert("Text saved as new recipe!\nName: " + name + "\nYou can edit it now.");
+                    textarea.value = '';
+                })
+                .catch(err => {
+                    console.error("Paste save error:", err);
+                    alert("Failed to save: " + err.message);
+                });
         }
-    });
 
-    // Cleanup
-    if (instructions.length > 0 && instructions[0].trim().toLowerCase().includes(name.toLowerCase())) {
-        instructions.shift();
-    }
-
-    const data = {
-        name,
-        cuisine,
-        prepTime,
-        cookTime,
-        servings,
-        imageUrl,
-        ingredients,
-        instructions,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        lastCooked: null,
-        comments: []
-    };
-
-    recipesRef.add(data)
-        .then(() => {
-            alert(
-                `Saved!\n\n` +
-                `Name: ${name}\n` +
-                `Cuisine: ${cuisine}\n` +
-                `Prep: ${prepTime} min | Cook: ${cookTime} min | Servings: ${servings}\n` +
-                `Ingredients: ${ingredients.length}\n` +
-                `Instructions: ${instructions.length} steps\n` +
-                (imageUrl ? `Image saved` : '') +
-                `\nOpen the card.`
-            );
-            textarea.value = '';
-        })
-        .catch(err => {
-            console.error(err);
-            alert("Failed to save: " + err.message);
-        });
-}
         // Initial render
         renderRecipes();
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
