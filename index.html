@@ -708,9 +708,9 @@
         // NEW: Save pasted text as a recipe
 function savePastedTextAsRecipe() {
     const textarea = document.getElementById('pasteText');
-    const rawText = textarea.value.trim();
+    const rawText = textarea.value;
 
-    if (!rawText) {
+    if (!rawText.trim()) {
         alert("Please paste some text first");
         return;
     }
@@ -728,47 +728,50 @@ function savePastedTextAsRecipe() {
     let collectingInstructions = false;
 
     lines.forEach(rawLine => {
-        const line = rawLine.trimEnd(); // only remove trailing spaces
-        const lower = line.toLowerCase();
+        const line = rawLine; // keep original, no trim yet
+        const trimmed = line.trim();
+        const lowerTrimmed = trimmed.toLowerCase();
+
+        if (!trimmed) return; // skip blank lines
 
         // Metadata
-        if (lower.startsWith('name:')) {
-            name = line.split(/[:：]/)[1]?.trim() || line.trim();
+        if (lowerTrimmed.startsWith('name:')) {
+            name = trimmed.split(/[:：]/)[1]?.trim() || trimmed.trim();
             return;
         }
 
-        if (lower.startsWith('cuisine:')) {
-            const value = line.split(/[:：]/)[1]?.trim() || '';
+        if (lowerTrimmed.startsWith('cuisine:')) {
+            const value = trimmed.split(/[:：]/)[1]?.trim() || '';
             if (value) cuisine = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
             return;
         }
 
-        if (lower.startsWith('image:')) {
-            const urlPart = line.split(/[:：]/)[1]?.trim() || line.trim();
+        if (lowerTrimmed.startsWith('image:')) {
+            const urlPart = trimmed.split(/[:：]/)[1]?.trim() || trimmed.trim();
             if (urlPart.startsWith('https://')) imageUrl = urlPart;
             return;
         }
 
-        if (lower.includes('prep') || lower.includes('preparation')) {
-            const match = lower.match(/(\d+)/);
+        if (lowerTrimmed.includes('prep') || lowerTrimmed.includes('preparation')) {
+            const match = lowerTrimmed.match(/(\d+)/);
             if (match) prepTime = parseInt(match[1]) || 0;
             return;
         }
-        if (lower.includes('cook') || lower.includes('bake') || lower.includes('oven')) {
-            const match = lower.match(/(\d+)/);
+        if (lowerTrimmed.includes('cook') || lowerTrimmed.includes('bake') || lowerTrimmed.includes('oven')) {
+            const match = lowerTrimmed.match(/(\d+)/);
             if (match) cookTime = parseInt(match[1]) || 0;
             return;
         }
-        if (lower.includes('serv') || lower.includes('serve') || lower.includes('portion') || lower.includes('makes')) {
-            const match = lower.match(/(\d+)/);
+        if (lowerTrimmed.includes('serv') || lowerTrimmed.includes('serve') || lowerTrimmed.includes('portion') || lowerTrimmed.includes('makes')) {
+            const match = lowerTrimmed.match(/(\d+)/);
             if (match) servings = parseInt(match[1]) || 1;
             return;
         }
 
-        // Trigger instructions collection
-        if (!collectingInstructions && (lower.includes('instructions:') || line.match(/^\s*\d+\.\s/))) {
+        // Trigger instructions collection (loose match)
+        if (!collectingInstructions && (lowerTrimmed.includes('instructions') || line.match(/^\s*\d+\.\s/))) {
             collectingInstructions = true;
-            // If this line is already a numbered step, add it
+            // If this line is the first step, add it
             if (line.match(/^\s*\d+\.\s/)) {
                 let cleaned = line.replace(/^\s*\d+\.\s*/, '');
                 if (cleaned.trim()) instructions.push(cleaned);
@@ -778,15 +781,15 @@ function savePastedTextAsRecipe() {
 
         // Ingredients (before instructions)
         if (!collectingInstructions) {
-            let cleaned = line.trim();
+            let cleaned = trimmed.replace(/^[-•*]\s*/, '');
             if (cleaned && (line.match(/^\s*\d+(\.\d+)?\s*/) || line.match(/^\s*[-•*]/))) {
                 ingredients.push(cleaned);
             }
         }
 
-        // Instructions: EVERY line with content after trigger is one step
-        if (collectingInstructions && line.trim().length > 0) {
-            let cleaned = line.replace(/^\s*\d+\.\s*/, ''); // remove leading number + space only
+        // Instructions: every line with visible content after trigger is one step
+        if (collectingInstructions && trimmed.length > 0) {
+            let cleaned = line.replace(/^\s*\d+\.\s*/, ''); // remove leading number + spaces only
             if (cleaned.trim()) instructions.push(cleaned);
         }
     });
@@ -830,6 +833,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
