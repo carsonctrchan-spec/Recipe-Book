@@ -715,7 +715,7 @@ function savePastedTextAsRecipe() {
         return;
     }
 
-    const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
+    const lines = rawText.split('\n').map(l => l.trimEnd()); // trim only trailing spaces, keep leading
 
     let name = "Pasted Recipe - " + new Date().toLocaleString();
     let cuisine = "Other";
@@ -730,7 +730,7 @@ function savePastedTextAsRecipe() {
     lines.forEach(line => {
         const lower = line.toLowerCase();
 
-        // Metadata extraction
+        // Metadata
         if (lower.startsWith('name:')) {
             name = line.split(/[:：]/)[1]?.trim() || line.trim();
             return;
@@ -764,12 +764,12 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Trigger instructions collection on "Instructions:" or any numbered line
+        // Trigger instructions collection
         if (!collectingInstructions && (lower.includes('instructions:') || line.match(/^\d+\.\s/))) {
             collectingInstructions = true;
-            // If this line is the first numbered step, add it too
+            // If this line is already a numbered step, add it
             if (line.match(/^\d+\.\s/)) {
-                let cleaned = line.replace(/^\d+\.\s*/, '').trim();
+                let cleaned = line.replace(/^\d+\.\s*/, '');
                 if (cleaned) instructions.push(cleaned);
             }
             return;
@@ -777,15 +777,16 @@ function savePastedTextAsRecipe() {
 
         // Ingredients (before instructions)
         if (!collectingInstructions) {
-            let cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+            let cleaned = line.replace(/^[-•*]\s*/, '').trim();
             if (cleaned && (line.match(/^\d+(\.\d+)?\s*/) || line.startsWith('-') || line.startsWith('•'))) {
                 ingredients.push(cleaned);
             }
         }
 
-        // Instructions: EVERY non-empty line after trigger is one step
+        // Instructions: every non-empty line after trigger is one step
         if (collectingInstructions && line.length > 3) {
-            let cleaned = line.replace(/^\d+\.\s*/, '').trim();
+            // Only remove leading number, keep everything else (including °C)
+            let cleaned = line.replace(/^\d+\.\s*/, '');
             if (cleaned) instructions.push(cleaned);
         }
     });
@@ -829,6 +830,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
