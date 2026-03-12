@@ -708,14 +708,14 @@
         // NEW: Save pasted text as a recipe
 function savePastedTextAsRecipe() {
     const textarea = document.getElementById('pasteText');
-    const rawText = textarea.value.trim();
+    const rawText = textarea.value;
 
-    if (!rawText) {
+    if (!rawText.trim()) {
         alert("Please paste some text first");
         return;
     }
 
-    const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
+    const lines = rawText.split('\n');
 
     let name = "Pasted Recipe - " + new Date().toLocaleString();
     let cuisine = "Other";
@@ -725,121 +725,77 @@ function savePastedTextAsRecipe() {
     let imageUrl = "";
     let ingredients = [];
     let instructions = [];
-    let currentSection = "unknown"; // ingredients or instructions
+    let collectingInstructions = false;
 
-    // Cuisine keywords
-    const cuisineKeywords = {
-        italian: ["italian", "pasta", "pizza", "carbonara"],
-        chinese: ["chinese", "stir fry", "dumpling", "fried rice"],
-        mexican: ["mexican", "taco", "burrito"],
-        indian: ["indian", "curry", "masala"],
-        french: ["french", "croissant", "ratatouille"],
-        japanese: ["japanese", "sushi", "ramen"],
-        thai: ["thai", "pad thai", "tom yum"],
-        american: ["american", "burger", "bbq", "cookie"],
-        mediterranean: ["mediterranean", "greek", "hummus"],
-        dessert: ["dessert", "cake", "cookie", "pie", "chocolate", "brownie"]
-    };
+    lines.forEach(rawLine => {
+        const trimmed = rawLine.trim();
+        const lowerTrimmed = trimmed.toLowerCase();
 
-    lines.forEach((line, idx) => {
-        const lower = line.toLowerCase();
+        if (!trimmed) return; // skip blank lines
 
-        // 1. Name from "Name:" prefix (highest priority)
-        if (lower.startsWith('name:') || lower.startsWith('標題:') || lower.startsWith('recipe name:') || lower.startsWith('title:')) {
-            name = line.split(/[:：]/)[1]?.trim() || line.trim();
+        // Metadata (using trimmed for detection)
+        if (lowerTrimmed.startsWith('name:')) {
+            name = trimmed.split(/[:：]/)[1]?.trim() || trimmed.trim();
             return;
         }
 
-        // 2. Image URL (prefix or direct https)
-        if (line.startsWith('Image:') || line.startsWith('Photo:') || line.startsWith('圖片:') || 
-            (line.startsWith('https://') && (lower.includes('.jpg') || lower.includes('.png') || lower.includes('.gif') || lower.includes('.webp')))) {
-            const urlPart = line.replace(/^Image:\s*/i, '')
-                               .replace(/^Photo:\s*/i, '')
-                               .replace(/^圖片:\s*/i, '')
-                               .trim()
-                               .split(' ')[0]; // take first word
-            if (urlPart.startsWith('https://') && urlPart.length > 20) {
-                imageUrl = urlPart;
-                return;
-            }
-        }
-
-        // 3. Parse metadata (prep, cook, servings) — do this early so they don't go to instructions
-        if (lower.includes('prep') || lower.includes('preparation')) {
-            const match = line.match(/(\d+)/);
-            if (match) {
-                prepTime = parseInt(match[1]) || 0;
-                return; // skip adding to lists
-            }
-        }
-        if (lower.includes('cook') || lower.includes('bake') || lower.includes('oven')) {
-            const match = line.match(/(\d+)/);
-            if (match) {
-                cookTime = parseInt(match[1]) || 0;
-                return;
-            }
-        }
-        if (lower.includes('serv') || lower.includes('serve') || lower.includes('portion') || lower.includes('makes') || lower.includes('yield')) {
-            const match = line.match(/(\d+)/);
-            if (match) {
-                servings = parseInt(match[1]) || 1;
-                return;
-            }
-        }
-
-        // 4. Cuisine
-        for (const [key, words] of Object.entries(cuisineKeywords)) {
-            if (words.some(w => lower.includes(w))) {
-                cuisine = key.charAt(0).toUpperCase() + key.slice(1);
-                break;
-            }
-        }
-
-        // 5. Section switching
-        if (lower.includes('ingredient') || lower === 'ingredients:' || lower === '材料:' || lower.includes('配料')) {
-            currentSection = "ingredients";
-            return;
-        }
-        if (lower.includes('instruction') || lower.includes('step') || lower === 'instructions:' || 
-            lower === '做法:' || lower === 'steps:' || lower.includes('步驟') || lower.includes('做法')) {
-            currentSection = "instructions";
+        if (lowerTrimmed.startsWith('cuisine:')) {
+            const value = trimmed.split(/[:：]/)[1]?.trim() || '';
+            if (value) cuisine = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
             return;
         }
 
-        // 6. Add to ingredients
-        if (currentSection === "ingredients" || 
-            line.startsWith('-') || line.startsWith('•') || line.startsWith('*') ||
-            line.match(/^\d+(\.\d+)?\s*(cup|tsp|tbsp|gram|g|ml|kg|個|份|片|條)/i) ||
-            line.match(/^\d+\s*[a-z]/i)) {
-            let cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
-            if (cleaned && !cleaned.startsWith('https://') && !cleaned.includes('prep') && !cleaned.includes('cook') && !cleaned.includes('serv')) {
+        if (lowerTrimmed.startsWith('image:')) {
+            const urlPart = trimmed.split(/[:：]/)[1]?.trim() || trimmed.trim();
+            if (urlPart.startsWith('https://')) imageUrl = urlPart;
+            return;
+        }
+
+        if (lowerTrimmed.includes('prep') || lowerTrimmed.includes('preparation')) {
+            const match = trimmed.match(/(\d+)/);
+            if (match) prepTime = parseInt(match[1]) || 0;
+            return;
+        }
+        if (lowerTrimmed.includes('cook') || lowerTrimmed.includes('bake') || lowerTrimmed.includes('oven')) {
+            const match = trimmed.match(/(\d+)/);
+            if (match) cookTime = parseInt(match[1]) || 0;
+            return;
+        }
+        if (lowerTrimmed.includes('serv') || lowerTrimmed.includes('serve') || lowerTrimmed.includes('portion') || lowerTrimmed.includes('makes')) {
+            const match = trimmed.match(/(\d+)/);
+            if (match) servings = parseInt(match[1]) || 1;
+            return;
+        }
+
+        // Trigger instructions collection (very loose)
+        if (!collectingInstructions && (lowerTrimmed.includes('instructions') || trimmed.match(/^\s*\d+\.\s/))) {
+            collectingInstructions = true;
+            // Add the trigger line if it's a step
+            if (trimmed.match(/^\s*\d+\.\s/)) {
+                let cleaned = trimmed.replace(/^\s*\d+\.\s*/, '');
+                if (cleaned) instructions.push(cleaned);
+            }
+            return;
+        }
+
+        // Ingredients (before instructions)
+        if (!collectingInstructions) {
+            let cleaned = trimmed.replace(/^[-•*]\s*/, '');
+            if (cleaned && (trimmed.match(/^\s*\d+(\.\d+)?\s*/) || trimmed.match(/^\s*[-•*]/))) {
                 ingredients.push(cleaned);
             }
-            return;
         }
 
-        // 7. Add to instructions
-        if (currentSection === "instructions" || 
-            line.match(/^\d+\.\s/) || line.match(/^step\s*\d+/i) || 
-            line.match(/^\d+\s+[a-z]/i)) {
-            let cleaned = line.replace(/^\d+\.\s*/, '').replace(/^step\s*\d+:\s*/i, '').trim();
-            // Skip if it's metadata we already parsed
-            if (!cleaned.includes('prep time') && !cleaned.includes('cook time') && !cleaned.includes('servings')) {
-                instructions.push(cleaned);
-            }
-            return;
-        }
-
-        // 8. Fallback to instructions (only if not metadata)
-        if (line.length > 5 && !line.startsWith('https://') && 
-            !lower.includes('prep') && !lower.includes('cook') && !lower.includes('serv') && 
-            !lower.includes('time') && !lower.includes('min')) {
-            instructions.push(line);
+        // Instructions: every line with content after trigger is one step
+        if (collectingInstructions && trimmed.length > 0) {
+            // Remove only leading number + spaces, keep the rest (including spaces and °C)
+            let cleaned = rawLine.replace(/^\s*\d+\.\s*/, '');
+            if (cleaned.trim()) instructions.push(cleaned);
         }
     });
 
     // Cleanup
-    if (instructions.length > 0 && instructions[0].toLowerCase().includes(name.toLowerCase())) {
+    if (instructions.length > 0 && instructions[0].trim().toLowerCase().includes(name.toLowerCase())) {
         instructions.shift();
     }
 
@@ -851,7 +807,7 @@ function savePastedTextAsRecipe() {
         servings: servings,
         imageUrl: imageUrl,
         ingredients: ingredients,
-        instructions: instructions.length > 0 ? instructions : [rawText],
+        instructions: instructions,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         lastCooked: null,
         comments: []
@@ -862,8 +818,8 @@ function savePastedTextAsRecipe() {
             let msg = `Saved!\n\nName: ${name}\nCuisine: ${cuisine}\n`;
             msg += `Prep: ${prepTime} min | Cook: ${cookTime} min | Servings: ${servings}\n`;
             msg += `Ingredients: ${ingredients.length} items\n`;
-            msg += `Steps: ${instructions.length}\n`;
-            if (imageUrl) msg += `Image: ${imageUrl}\n(should appear in card)`;
+            msg += `Instructions: ${instructions.length} steps\n`;
+            if (imageUrl) msg += `Image: ${imageUrl}\n(should show in card)`;
             alert(msg + "\nCheck the new card — edit if needed.");
             textarea.value = '';
         })
@@ -877,6 +833,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
