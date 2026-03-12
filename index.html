@@ -768,7 +768,7 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Section switching - loose for your paste
+        // Section switching - extremely loose
         if (lower.includes('ingredients')) {
             inIngredients = true;
             inInstructions = false;
@@ -777,7 +777,7 @@ function savePastedTextAsRecipe() {
 
         if (lower.includes('instructions')) {
             inInstructions = true;
-            inIngredients = false;  // STOP adding to ingredients here!
+            inIngredients = false;  // This line is critical — it stops ingredients mode
             return;
         }
 
@@ -834,12 +834,12 @@ function savePastedTextAsRecipe() {
             alert("Failed to save:\n" + err.message);
         });
 }
-
         // Initial render
         renderRecipes();
     </script>
 </body>
 </html>
+
 
 
 
