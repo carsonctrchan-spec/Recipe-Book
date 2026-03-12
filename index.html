@@ -708,13 +708,14 @@
         // NEW: Save pasted text as a recipe
 function savePastedTextAsRecipe() {
     const textarea = document.getElementById('pasteText');
-    const rawText = textarea.value.trim();
-    if (!rawText) {
+    const rawText = textarea.value;
+
+    if (!rawText.trim()) {
         alert("Please paste some text first");
         return;
     }
 
-    const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
+    const lines = rawText.split('\n');
 
     let name = "Pasted Recipe - " + new Date().toLocaleString();
     let cuisine = "Other";
@@ -724,75 +725,94 @@ function savePastedTextAsRecipe() {
     let imageUrl = "";
     let ingredients = [];
     let instructions = [];
-    let currentSection = null;  // null | 'ingredients' | 'instructions'
+    let inIngredients = false;
+    let inInstructions = false;
 
-    lines.forEach(line => {
-        const lower = line.toLowerCase();
+    lines.forEach(rawLine => {
+        const line = rawLine.trimEnd(); // keep leading spaces, remove only trailing
+        const trimmed = line.trim();
+        const lowerTrimmed = trimmed.toLowerCase();
 
-        // ── Metadata fields (reset section when found) ───────────────────────────────
-        if (lower.startsWith('name:')) {
-            name = line.split(/[:：]/, 2)[1]?.trim() || name;
-            currentSection = null;
-            return;
-        }
-        if (lower.startsWith('cuisine:')) {
-            const val = line.split(/[:：]/, 2)[1]?.trim() || '';
-            if (val) cuisine = val.charAt(0).toUpperCase() + val.slice(1).toLowerCase();
-            currentSection = null;
-            return;
-        }
-        if (lower.includes('prep') && lower.includes('time')) {
-            const match = line.match(/(\d+)/);
-            if (match) prepTime = parseInt(match[1]) || 0;
-            currentSection = null;
-            return;
-        }
-        if (lower.includes('cook') || lower.includes('bake') || lower.includes('oven')) {
-            const match = line.match(/(\d+)/);
-            if (match) cookTime = parseInt(match[1]) || 0;
-            currentSection = null;
-            return;
-        }
-        if (lower.includes('serv') || lower.includes('yield') || lower.includes('makes')) {
-            const match = line.match(/(\d+)/);
-            if (match) servings = parseInt(match[1]) || 1;
-            currentSection = null;
-            return;
-        }
-        if (lower.startsWith('image:') || lower.startsWith('photo:')) {
-            const urlPart = line.split(/[:：]/, 2)[1]?.trim() || line.trim();
-            if (urlPart.startsWith('http')) imageUrl = urlPart;
-            currentSection = null;
+        if (!trimmed) return;
+
+        // ── Metadata ──────────────────────────────────────
+        if (lowerTrimmed.startsWith('name:')) {
+            name = trimmed.split(/[:：]/)[1]?.trim() || trimmed.trim();
             return;
         }
 
-        // ── Section headers ──────────────────────────────────────────────────────────
-        if (/^ingredients(:|$)/i.test(lower) || /^ingredient list(:|$)/i.test(lower)) {
-            currentSection = 'ingredients';
-            return;
-        }
-        if (/^instructions(:|$)/i.test(lower) || /^steps(:|$)/i.test(lower) || 
-            /^directions(:|$)/i.test(lower) || /^method(:|$)/i.test(lower)) {
-            currentSection = 'instructions';
+        if (lowerTrimmed.startsWith('cuisine:')) {
+            const value = trimmed.split(/[:：]/)[1]?.trim() || '';
+            if (value) cuisine = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
             return;
         }
 
-        // ── Collect into current section ─────────────────────────────────────────────
-        if (currentSection === 'ingredients' && line) {
-            let cleaned = line.replace(/^[-•*]\s*/, '').trim();
+        if (lowerTrimmed.startsWith('image:')) {
+            const urlPart = trimmed.split(/[:：]/)[1]?.trim() || trimmed.trim();
+            if (urlPart.startsWith('https://')) imageUrl = urlPart;
+            return;
+        }
+
+        if (lowerTrimmed.includes('prep') || lowerTrimmed.includes('preparation')) {
+            const match = trimmed.match(/(\d+)/);
+            if (match) prepTime = parseInt(match[1], 10);
+            return;
+        }
+        if (lowerTrimmed.includes('cook') || lowerTrimmed.includes('bake') || lowerTrimmed.includes('oven')) {
+            const match = trimmed.match(/(\d+)/);
+            if (match) cookTime = parseInt(match[1], 10);
+            return;
+        }
+        if (lowerTrimmed.includes('serv') || lowerTrimmed.includes('serve') || lowerTrimmed.includes('portion') || lowerTrimmed.includes('makes')) {
+            const match = trimmed.match(/(\d+)/);
+            if (match) servings = parseInt(match[1], 10);
+            return;
+        }
+
+        // ── Section switching ─────────────────────────────
+        if (lowerTrimmed.includes('ingredients') || lowerTrimmed === 'ingredients:') {
+            inIngredients = true;
+            inInstructions = false;
+            return;
+        }
+
+        if (lowerTrimmed.includes('instructions') || lowerTrimmed.includes('step') || lowerTrimmed === 'instructions:') {
+            inInstructions = true;
+            inIngredients = false;
+            return;
+        }
+
+        // ── Collect ingredients (same working logic as before) ──
+        if (inIngredients) {
+            let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
             if (cleaned) ingredients.push(cleaned);
+            return;
         }
 
-        if (currentSection === 'instructions' && line) {
-            let cleaned = line.replace(/^\d+\.?\s*[-•*]?\s*/, '').trim();
+        // ── Collect instructions (mirror ingredients logic) ──
+        if (inInstructions) {
+            // Remove only leading number (1. 2. etc.), keep everything else
+            let cleaned = trimmed.replace(/^\d+\.\s*/, '');
             if (cleaned) instructions.push(cleaned);
+            return;
+        }
+
+        // Fallback: if no section yet, guess based on pattern
+        if (!inIngredients && !inInstructions) {
+            if (trimmed.match(/^\d+(\.\d+)?\s*(cup|tsp|tbsp|gram|g|ml|kg)/i) || trimmed.match(/^\s*[-•*]/)) {
+                let cleaned = trimmed.replace(/^[-•*]\s*/, '').trim();
+                if (cleaned) ingredients.push(cleaned);
+            } else if (trimmed.match(/^\d+\.\s/) || trimmed.length > 10) {
+                let cleaned = trimmed.replace(/^\d+\.\s*/, '');
+                if (cleaned) instructions.push(cleaned);
+            }
         }
     });
 
-    // Debug alert to confirm what was parsed (you can remove later)
-    let debugMsg = `Saved!\nName: ${name}\nCuisine: ${cuisine}\nPrep: ${prepTime} min | Cook: ${cookTime} min | Servings: ${servings}\n`;
-    debugMsg += `Ingredients: ${ingredients.length} items\nInstructions: ${instructions.length} steps`;
-    alert(debugMsg);
+    // Cleanup
+    if (instructions.length > 0 && instructions[0].trim().toLowerCase().includes(name.toLowerCase())) {
+        instructions.shift();
+    }
 
     const data = {
         name,
@@ -810,11 +830,21 @@ function savePastedTextAsRecipe() {
 
     recipesRef.add(data)
         .then(() => {
+            alert(
+                `Saved!\n\n` +
+                `Name: ${name}\n` +
+                `Cuisine: ${cuisine}\n` +
+                `Prep: ${prepTime} min | Cook: ${cookTime} min | Servings: ${servings}\n` +
+                `Ingredients: ${ingredients.length} items\n` +
+                `Instructions: ${instructions.length} steps\n` +
+                (imageUrl ? `Image saved\n` : '') +
+                `\nOpen the new card to verify.`
+            );
             textarea.value = '';
         })
         .catch(err => {
-            console.error("Save failed:", err);
-            alert("Failed to save: " + err.message);
+            console.error("Save error:", err);
+            alert("Failed to save:\n" + err.message);
         });
 }
         // Initial render
@@ -822,6 +852,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
