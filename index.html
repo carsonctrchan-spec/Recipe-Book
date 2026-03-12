@@ -725,25 +725,23 @@ function savePastedTextAsRecipe() {
     let imageUrl = "";
     let ingredients = [];
     let instructions = [];
-    let inIngredients = false;
-    let inInstructions = false;
+    let currentSection = null; // 'ingredients' or 'instructions'
 
     lines.forEach(rawLine => {
-        const line = rawLine.trimEnd(); // keep leading spaces, remove only trailing
+        const line = rawLine.trimEnd(); // keep leading spaces
         const trimmed = line.trim();
         const lowerTrimmed = trimmed.toLowerCase();
 
         if (!trimmed) return;
 
-        // ── Metadata ──────────────────────────────────────
+        // Metadata (skip)
         if (lowerTrimmed.startsWith('name:')) {
             name = trimmed.split(/[:：]/)[1]?.trim() || trimmed.trim();
             return;
         }
 
         if (lowerTrimmed.startsWith('cuisine:')) {
-            const value = trimmed.split(/[:：]/)[1]?.trim() || '';
-            if (value) cuisine = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+            cuisine = trimmed.split(/[:：]/)[1]?.trim() || trimmed.trim();
             return;
         }
 
@@ -769,36 +767,33 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // ── Section switching ─────────────────────────────
+        // Section detection (very loose for instructions)
         if (lowerTrimmed.includes('ingredients') || lowerTrimmed === 'ingredients:') {
-            inIngredients = true;
-            inInstructions = false;
+            currentSection = 'ingredients';
             return;
         }
 
-        if (lowerTrimmed.includes('instructions') || lowerTrimmed.includes('step') || lowerTrimmed === 'instructions:') {
-            inInstructions = true;
-            inIngredients = false;
+        if (lowerTrimmed.includes('instructions') || lowerTrimmed.includes('step') || lowerTrimmed.includes('做法') || lowerTrimmed.includes('步驟')) {
+            currentSection = 'instructions';
             return;
         }
 
-        // ── Collect ingredients (same working logic as before) ──
-        if (inIngredients) {
+        // Add to ingredients
+        if (currentSection === 'ingredients') {
             let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
             if (cleaned) ingredients.push(cleaned);
             return;
         }
 
-        // ── Collect instructions (mirror ingredients logic) ──
-        if (inInstructions) {
-            // Remove only leading number (1. 2. etc.), keep everything else
+        // Add to instructions
+        if (currentSection === 'instructions') {
             let cleaned = trimmed.replace(/^\d+\.\s*/, '');
             if (cleaned) instructions.push(cleaned);
             return;
         }
 
-        // Fallback: if no section yet, guess based on pattern
-        if (!inIngredients && !inInstructions) {
+        // Fallback guess (before any section)
+        if (!currentSection) {
             if (trimmed.match(/^\d+(\.\d+)?\s*(cup|tsp|tbsp|gram|g|ml|kg)/i) || trimmed.match(/^\s*[-•*]/)) {
                 let cleaned = trimmed.replace(/^[-•*]\s*/, '').trim();
                 if (cleaned) ingredients.push(cleaned);
@@ -852,6 +847,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
