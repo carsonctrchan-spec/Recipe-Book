@@ -706,7 +706,7 @@
         }
 
         // Paste function (this is the one you were using)
-       function savePastedTextAsRecipe() {
+function savePastedTextAsRecipe() {
     const textarea = document.getElementById('pasteText');
     const text = textarea.value;
 
@@ -768,7 +768,7 @@
             return;
         }
 
-        // Section switching - loose match for your paste style
+        // Section switching
         if (lower.includes('ingredients')) {
             inIngredients = true;
             inInstructions = false;
@@ -781,14 +781,14 @@
             return;
         }
 
-        // Add to ingredients
+        // Add to ingredients only if in ingredients mode
         if (inIngredients) {
             let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
             if (cleaned) ingredients.push(cleaned);
             return;
         }
 
-        // Add to instructions - every line after trigger
+        // Add to instructions if in instructions mode
         if (inInstructions) {
             let cleaned = trimmed.replace(/^\d+\.\s*/, '');
             if (cleaned) instructions.push(cleaned);
@@ -817,12 +817,21 @@
 
     recipesRef.add(data)
         .then(() => {
-            alert(`Saved!\n\nName: ${name}\nCuisine: ${cuisine}\nPrep: ${prepTime} min\nCook: ${cookTime} min\nServings: ${servings}\nIngredients: ${ingredients.length}\nInstructions: ${instructions.length} steps\n${imageUrl ? 'Image saved' : ''}\n\nCheck the card.`);
+            alert(
+                `Saved!\n\n` +
+                `Name: ${name}\n` +
+                `Cuisine: ${cuisine}\n` +
+                `Prep: ${prepTime} min | Cook: ${cookTime} min | Servings: ${servings}\n` +
+                `Ingredients: ${ingredients.length}\n` +
+                `Instructions: ${instructions.length} steps\n` +
+                (imageUrl ? `Image saved` : '') +
+                `\nOpen the card to check.`
+            );
             textarea.value = '';
         })
         .catch(err => {
-            console.error(err);
-            alert("Save failed: " + err.message);
+            console.error("Save error:", err);
+            alert("Failed to save:\n" + err.message);
         });
 }
 
@@ -831,4 +840,5 @@
     </script>
 </body>
 </html>
+
 
