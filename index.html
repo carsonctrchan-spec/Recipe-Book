@@ -715,6 +715,8 @@ function savePastedTextAsRecipe() {
         return;
     }
 
+    console.log("[DEBUG] Raw pasted text:\n", text);
+
     const lines = text.split('\n');
 
     let name = "Pasted Recipe - " + new Date().toLocaleString();
@@ -728,81 +730,113 @@ function savePastedTextAsRecipe() {
     let inIngredients = false;
     let inInstructions = false;
 
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        const lowerTrimmed = trimmed.toLowerCase();
+    console.log("[DEBUG] Processing lines...");
 
-        if (!trimmed) return;
+    lines.forEach((rawLine, index) => {
+        const line = rawLine; // keep original
+        const trimmed = line.trim();
+        const lower = trimmed.toLowerCase();
+
+        console.log(`[DEBUG] Line ${index + 1}: "${line}"`);
+
+        if (!trimmed) {
+            console.log("[DEBUG] Skipped blank line");
+            return;
+        }
 
         // Metadata
-        if (lowerTrimmed.startsWith('name:')) {
-            name = trimmed.split(/[:：]/)[1]?.trim() || trimmed.trim();
+        if (lower.startsWith('name:')) {
+            name = trimmed.replace(/^name:\s*/i, '').trim();
+            console.log("[DEBUG] Name set to:", name);
             return;
         }
 
-        if (lowerTrimmed.startsWith('cuisine:')) {
-            cuisine = trimmed.split(/[:：]/)[1]?.trim() || trimmed.trim();
+        if (lower.startsWith('cuisine:')) {
+            cuisine = trimmed.replace(/^cuisine:\s*/i, '').trim();
+            console.log("[DEBUG] Cuisine set to:", cuisine);
             return;
         }
 
-        if (lowerTrimmed.startsWith('image:')) {
-            imageUrl = trimmed.split(/[:：]/)[1]?.trim() || trimmed.trim();
+        if (lower.startsWith('image:')) {
+            imageUrl = trimmed.replace(/^image:\s*/i, '').trim();
+            console.log("[DEBUG] Image URL set to:", imageUrl);
             return;
         }
 
-        if (lowerTrimmed.includes('prep') || lowerTrimmed.includes('preparation')) {
-            const num = trimmed.match(/\d+/);
-            if (num) prepTime = parseInt(num[0], 10);
+        if (lower.includes('prep')) {
+            const match = trimmed.match(/\d+/);
+            if (match) {
+                prepTime = parseInt(match[0], 10);
+                console.log("[DEBUG] Prep time set to:", prepTime);
+            }
             return;
         }
 
-        if (lowerTrimmed.includes('cook') || lowerTrimmed.includes('bake') || lowerTrimmed.includes('oven')) {
-            const num = trimmed.match(/\d+/);
-            if (num) cookTime = parseInt(num[0], 10);
+        if (lower.includes('cook')) {
+            const match = trimmed.match(/\d+/);
+            if (match) {
+                cookTime = parseInt(match[0], 10);
+                console.log("[DEBUG] Cook time set to:", cookTime);
+            }
             return;
         }
 
-        if (lowerTrimmed.includes('serv') || lowerTrimmed.includes('serve') || lowerTrimmed.includes('portion') || lowerTrimmed.includes('makes')) {
-            const num = trimmed.match(/\d+/);
-            if (num) servings = parseInt(num[0], 10);
+        if (lower.includes('serv')) {
+            const match = trimmed.match(/\d+/);
+            if (match) {
+                servings = parseInt(match[0], 10);
+                console.log("[DEBUG] Servings set to:", servings);
+            }
             return;
         }
 
         // Section switching
-        if (lowerTrimmed.includes('ingredients') || lowerTrimmed === 'ingredients:') {
+        if (lower.includes('ingredients') || lower === 'ingredients:') {
             inIngredients = true;
             inInstructions = false;
+            console.log("[DEBUG] Entered ingredients section");
             return;
         }
 
-        if (lowerTrimmed.includes('instructions') || lowerTrimmed.includes('step') || lowerTrimmed.includes('instructions:')) {
+        if (lower.includes('instructions')) {
             inInstructions = true;
             inIngredients = false;
+            console.log("[DEBUG] Entered instructions section");
             return;
         }
 
-        // Ingredients
+        // Add to ingredients
         if (inIngredients) {
             let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
-            if (cleaned) ingredients.push(cleaned);
+            if (cleaned) {
+                ingredients.push(cleaned);
+                console.log("[DEBUG] Added to ingredients:", cleaned);
+            }
             return;
         }
 
-        // Instructions: add raw line after trigger, only strip leading number
+        // Add to instructions — every line after trigger
         if (inInstructions) {
-            let cleaned = line.replace(/^\s*\d+\.\s*/, ''); // keep original spaces and °C
-            if (cleaned.trim()) instructions.push(cleaned);
+            let cleaned = line.replace(/^\s*\d+\.\s*/, ''); // keep original spacing
+            if (cleaned.trim()) {
+                instructions.push(cleaned);
+                console.log("[DEBUG] Added to instructions:", cleaned);
+            }
             return;
         }
 
-        // Fallback for ingredients before sections
+        // Fallback guess (before sections)
         if (!inIngredients && !inInstructions) {
             let cleaned = trimmed.replace(/^[-•*]\s*/, '');
             if (cleaned && trimmed.match(/^\d+(\.\d+)?\s*/)) {
                 ingredients.push(cleaned);
+                console.log("[DEBUG] Fallback added to ingredients:", cleaned);
             }
         }
     });
+
+    console.log("[DEBUG] Final ingredients:", ingredients);
+    console.log("[DEBUG] Final instructions:", instructions);
 
     // Cleanup
     if (instructions.length > 0 && instructions[0].trim().toLowerCase().includes(name.toLowerCase())) {
@@ -835,13 +869,13 @@ function savePastedTextAsRecipe() {
                 `Ingredients: ${ingredients.length}\n` +
                 `Instructions: ${instructions.length} steps\n` +
                 (imageUrl ? `Image saved` : '') +
-                `\nOpen the card to check.`
+                `\nOpen DevTools (F12 → Console) to see debug logs.`
             );
             textarea.value = '';
         })
         .catch(err => {
-            console.error(err);
-            alert("Save failed: " + err.message);
+            console.error("Save error:", err);
+            alert("Failed to save:\n" + err.message);
         });
 }
         // Initial render
@@ -849,6 +883,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
