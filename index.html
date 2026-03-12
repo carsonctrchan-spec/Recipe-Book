@@ -734,7 +734,7 @@ function savePastedTextAsRecipe() {
 
         if (!trimmed) return;
 
-        // Metadata
+        // Metadata (parse and skip)
         if (lower.startsWith('name:')) {
             name = trimmed.replace(/^name:\s*/i, '').trim();
             return;
@@ -768,7 +768,7 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Section switching - extremely loose
+        // Section switching - loose and reliable
         if (lower.includes('ingredients')) {
             inIngredients = true;
             inInstructions = false;
@@ -777,18 +777,18 @@ function savePastedTextAsRecipe() {
 
         if (lower.includes('instructions')) {
             inInstructions = true;
-            inIngredients = false;  // This line is critical — it stops ingredients mode
+            inIngredients = false;  // This line STOPS ingredients mode
             return;
         }
 
-        // Ingredients
+        // Add to ingredients ONLY if still in ingredients mode
         if (inIngredients) {
             let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
             if (cleaned) ingredients.push(cleaned);
             return;
         }
 
-        // Instructions - add every line with content
+        // Add to instructions if in instructions mode
         if (inInstructions) {
             let cleaned = trimmed.replace(/^\d+\.\s*/, '');
             if (cleaned) instructions.push(cleaned);
@@ -839,6 +839,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
