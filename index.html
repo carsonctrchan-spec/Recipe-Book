@@ -785,24 +785,16 @@ function savePastedTextAsRecipe() {
             continue;
         }
 
-        // Add to instructions
-        if (currentSection === 'instructions') {
-            // Keep original line, only strip leading number
-            let cleaned = rawLine.replace(/^\s*\d+\.\s*/, '');
-            if (cleaned.trim()) {
-                instructions.push(cleaned);
-            }
-            continue;
-        }
-
-        // Fallback for lines before sections
-        if (!currentSection) {
-            let cleaned = trimmed.replace(/^[-•*]\s*/, '');
-            if (cleaned && trimmed.match(/^\d+(\.\d+)?\s*/)) {
-                ingredients.push(cleaned);
-            }
+      // Add to instructions - every line with content after trigger
+        if (inInstructions) {
+            let cleaned = line.replace(/^\s*\d+\.\s*/, ''); // remove leading number + space only
+            if (cleaned.trim()) instructions.push(cleaned);
+            return;
         }
     });
+
+    console.log("[FINAL] Ingredients:", ingredients);
+    console.log("[FINAL] Instructions:", instructions);
 
     // Cleanup
     if (instructions.length > 0 && instructions[0].trim().toLowerCase().includes(name.toLowerCase())) {
@@ -822,6 +814,7 @@ function savePastedTextAsRecipe() {
         lastCooked: null,
         comments: []
     };
+
     recipesRef.add(data)
         .then(() => {
             alert(
@@ -832,13 +825,13 @@ function savePastedTextAsRecipe() {
                 `Ingredients: ${ingredients.length}\n` +
                 `Instructions: ${instructions.length} steps\n` +
                 (imageUrl ? `Image saved` : '') +
-                `\nOpen the card.`
+                `\nOpen the card to check.`
             );
             textarea.value = '';
         })
         .catch(err => {
-            console.error(err);
-            alert("Failed to save: " + err.message);
+            console.error("Save error:", err);
+            alert("Failed to save:\n" + err.message);
         });
 }
         // Initial render
@@ -846,6 +839,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
