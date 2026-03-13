@@ -725,15 +725,15 @@ function savePastedTextAsRecipe() {
     let imageUrl = "";
     let ingredients = [];
     let instructions = [];
-    let currentSection = null;
+    let currentSection = null;  // 'ingredients' or 'instructions'
 
-    for (const rawLine of lines) {
-        const trimmed = rawLine.trim();
+    for (const line of lines) {
+        const trimmed = line.trim();
         const lower = trimmed.toLowerCase();
 
         if (!trimmed) continue;
 
-        // Metadata
+        // ── Metadata ──────────────────────────────────────
         if (lower.startsWith('name:')) {
             name = trimmed.replace(/^name:\s*/i, '').trim();
             continue;
@@ -767,37 +767,34 @@ function savePastedTextAsRecipe() {
             continue;
         }
 
-        // Section headers
+        // ── Section headers ───────────────────────────────
         if (lower.includes('ingredients') || lower === 'ingredients:') {
             currentSection = 'ingredients';
             continue;
         }
 
-        if (lower.includes('instructions') || lower === 'instructions:') {
+        if (lower.includes('instructions') || lower.includes('step')) {
             currentSection = 'instructions';
             continue;
         }
 
-        // Add to ingredients
+        // ── Collect ingredients ───────────────────────────
         if (currentSection === 'ingredients') {
             let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
             if (cleaned) ingredients.push(cleaned);
             continue;
         }
 
-      // Add to instructions - every line with content after trigger
-        if (inInstructions) {
-            let cleaned = line.replace(/^\s*\d+\.\s*/, ''); // remove leading number + space only
-            if (cleaned.trim()) instructions.push(cleaned);
-            return;
+        // ── Collect instructions ──────────────────────────
+        if (currentSection === 'instructions') {
+            let cleaned = trimmed.replace(/^\d+\.\s*/, '');
+            if (cleaned) instructions.push(cleaned);
+            continue;
         }
-    });
+    }
 
-    console.log("[FINAL] Ingredients:", ingredients);
-    console.log("[FINAL] Instructions:", instructions);
-
-    // Cleanup
-    if (instructions.length > 0 && instructions[0].trim().toLowerCase().includes(name.toLowerCase())) {
+    // Cleanup: remove title duplication if present
+    if (instructions.length > 0 && instructions[0].toLowerCase().includes(name.toLowerCase())) {
         instructions.shift();
     }
 
@@ -822,7 +819,7 @@ function savePastedTextAsRecipe() {
                 `Name: ${name}\n` +
                 `Cuisine: ${cuisine}\n` +
                 `Prep: ${prepTime} min | Cook: ${cookTime} min | Servings: ${servings}\n` +
-                `Ingredients: ${ingredients.length}\n` +
+                `Ingredients: ${ingredients.length} items\n` +
                 `Instructions: ${instructions.length} steps\n` +
                 (imageUrl ? `Image saved` : '') +
                 `\nOpen the card to check.`
@@ -839,6 +836,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
