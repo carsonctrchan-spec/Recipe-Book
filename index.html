@@ -715,9 +715,6 @@ function savePastedTextAsRecipe() {
         return;
     }
 
-    console.log("[PARSE] Starting parse. Text length:", text.length);
-    console.log("[PARSE] First 300 chars:", text.substring(0, 300).replace(/\n/g, '\\n'));
-
     const lines = text.split('\n');
 
     let name = "Pasted Recipe - " + new Date().toLocaleString();
@@ -731,111 +728,77 @@ function savePastedTextAsRecipe() {
     let inIngredients = false;
     let inInstructions = false;
 
-    lines.forEach((rawLine, index) => {
-        const line = rawLine;
+    lines.forEach((line, index) => {
         const trimmed = line.trim();
         const lower = trimmed.toLowerCase();
 
-        console.log(`[Line ${index+1}] "${line.substring(0, 60)}..." (trimmed: "${trimmed.substring(0, 40)}...")`);
-
-        if (!trimmed) {
-            console.log("  → skipped (blank)");
-            return;
-        }
+        if (!trimmed) return;
 
         // Metadata
         if (lower.startsWith('name:')) {
             name = trimmed.replace(/^name:\s*/i, '').trim();
-            console.log("  → Name:", name);
             return;
         }
 
         if (lower.startsWith('cuisine:')) {
             cuisine = trimmed.replace(/^cuisine:\s*/i, '').trim();
-            console.log("  → Cuisine:", cuisine);
             return;
         }
 
         if (lower.startsWith('prep time') || lower.startsWith('prep:')) {
             const num = trimmed.match(/\d+/);
-            if (num) {
-                prepTime = parseInt(num[0], 10);
-                console.log("  → Prep:", prepTime);
-            }
+            if (num) prepTime = parseInt(num[0], 10);
             return;
         }
 
         if (lower.startsWith('cook time') || lower.startsWith('cook:')) {
             const num = trimmed.match(/\d+/);
-            if (num) {
-                cookTime = parseInt(num[0], 10);
-                console.log("  → Cook:", cookTime);
-            }
+            if (num) cookTime = parseInt(num[0], 10);
             return;
         }
 
         if (lower.startsWith('servings') || lower.startsWith('serves')) {
             const num = trimmed.match(/\d+/);
-            if (num) {
-                servings = parseInt(num[0], 10);
-                console.log("  → Servings:", servings);
-            }
+            if (num) servings = parseInt(num[0], 10);
             return;
         }
 
         if (lower.startsWith('image:')) {
             imageUrl = trimmed.replace(/^image:\s*/i, '').trim();
-            console.log("  → Image:", imageUrl);
             return;
         }
 
-        // Section switching - multiple triggers
-        if (lower.includes('ingredients') || lower.includes('配料') || lower === 'ingredients:') {
+        // Section switching
+        if (lower.includes('ingredients')) {
             inIngredients = true;
             inInstructions = false;
-            console.log("  → ENTERED INGREDIENTS");
             return;
         }
 
-        if (lower.includes('instructions') || lower.includes('step') || lower.includes('做法') || lower.includes('步驟') || lower.includes('instructions:')) {
+        if (lower.includes('instructions')) {
             inInstructions = true;
             inIngredients = false;
-            console.log("  → ENTERED INSTRUCTIONS");
             return;
         }
 
-        // Ingredients
+        // IMPORTANT: mutually exclusive blocks with return
         if (inIngredients) {
             let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
-            if (cleaned) {
-                ingredients.push(cleaned);
-                console.log("  → + Ingredient:", cleaned);
-            }
+            if (cleaned) ingredients.push(cleaned);
             return;
         }
 
-        // Instructions
         if (inInstructions) {
-            let cleaned = line.replace(/^\s*\d+\.\s*/, '');
-            if (cleaned.trim()) {
-                instructions.push(cleaned);
-                console.log("  → + Instruction:", cleaned.trim());
-            }
+            let cleaned = trimmed.replace(/^\d+\.\s*/, '');
+            if (cleaned) instructions.push(cleaned);
             return;
-        }
-
-        // Fallback
-        if (!inIngredients && !inInstructions) {
-            let cleaned = trimmed.replace(/^[-•*]\s*/, '');
-            if (cleaned && trimmed.match(/^\d+(\.\d+)?\s*/)) {
-                ingredients.push(cleaned);
-                console.log("  → fallback + Ingredient:", cleaned);
-            }
         }
     });
 
-    console.log("[FINAL] Ingredients:", ingredients);
-    console.log("[FINAL] Instructions:", instructions);
+    // Cleanup
+    if (instructions.length > 0 && instructions[0].trim().toLowerCase().includes(name.toLowerCase())) {
+        instructions.shift();
+    }
 
     const data = {
         name,
@@ -875,6 +838,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
