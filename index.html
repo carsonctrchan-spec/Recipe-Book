@@ -769,30 +769,33 @@ function savePastedTextAsRecipe() {
         }
 
         // Section switching
-        if (lower.includes('ingredients')) {
+        if (lower.includes('ingredients') || lower.includes('配料')) {
             inIngredients = true;
             inInstructions = false;
             return;
         }
 
-        if (lower.includes('instructions')) {
+        // Trigger instructions on first numbered line (1. 2. etc.)
+        if (!inInstructions && trimmed.match(/^\d+\.\s/)) {
             inInstructions = true;
             inIngredients = false;
+            let cleaned = trimmed.replace(/^\d+\.\s*/, '');
+            if (cleaned) instructions.push(cleaned);
             return;
         }
 
-        // Ingredients - only if inIngredients is true
+        // Ingredients
         if (inIngredients) {
             let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
             if (cleaned) ingredients.push(cleaned);
-            return;  // prevent fall-through
+            return;
         }
 
-        // Instructions - only if inInstructions is true
+        // Instructions
         if (inInstructions) {
             let cleaned = trimmed.replace(/^\d+\.\s*/, '');
             if (cleaned) instructions.push(cleaned);
-            return;  // prevent fall-through
+            return;
         }
     });
 
@@ -839,6 +842,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
