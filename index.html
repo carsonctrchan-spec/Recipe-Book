@@ -295,6 +295,8 @@
                 <button class="filter-btn" onclick="filterRecipes('Mediterranean')">Mediterranean</button>
                 <button class="filter-btn" onclick="filterRecipes('Dessert')">Dessert</button>
                 <button class="filter-btn" onclick="filterRecipes('Other')">Other</button>
+                <button class="filter-btn" onclick="filterRecipes('Western')">Western</button>
+                <button class="filter-btn" onclick="filterRecipes('Soup')">Soup</button>
             </div>
         </div>
 
@@ -313,20 +315,22 @@
                 </div>
                 <div class="form-group">
                     <label>Cuisine Type *</label>
-                    <select id="cuisineType" required>
-                        <option value="">Select cuisine type</option>
-                        <option value="Italian">Italian</option>
-                        <option value="Chinese">Chinese</option>
-                        <option value="Mexican">Mexican</option>
-                        <option value="Indian">Indian</option>
-                        <option value="French">French</option>
-                        <option value="Japanese">Japanese</option>
-                        <option value="Thai">Thai</option>
-                        <option value="American">American</option>
-                        <option value="Mediterranean">Mediterranean</option>
-                        <option value="Dessert">Dessert</option>
-                        <option value="Other">Other</option>
-                    </select>
+                <select id="cuisineType" required>
+    <option value="">Select cuisine type</option>
+    <option value="Italian">Italian</option>
+    <option value="Chinese">Chinese</option>
+    <option value="Mexican">Mexican</option>
+    <option value="Indian">Indian</option>
+    <option value="French">French</option>
+    <option value="Japanese">Japanese</option>
+    <option value="Thai">Thai</option>
+    <option value="American">American</option>
+    <option value="Mediterranean">Mediterranean</option>
+    <option value="Dessert">Dessert</option>
+    <option value="Western">Western</option>
+    <option value="Soup">Soup</option>
+    <option value="Other">Other</option>
+</select>
                 </div>
                 <div class="time-inputs">
                     <div class="form-group">
@@ -839,6 +843,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
