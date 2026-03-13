@@ -728,7 +728,7 @@ function savePastedTextAsRecipe() {
     let inIngredients = false;
     let inInstructions = false;
 
-    lines.forEach((line, index) => {
+    lines.forEach(line => {
         const trimmed = line.trim();
         const lower = trimmed.toLowerCase();
 
@@ -768,7 +768,7 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Section switching
+        // Section switching - super loose for your paste
         if (lower.includes('ingredients')) {
             inIngredients = true;
             inInstructions = false;
@@ -777,17 +777,18 @@ function savePastedTextAsRecipe() {
 
         if (lower.includes('instructions')) {
             inInstructions = true;
-            inIngredients = false;
+            inIngredients = false;  // critical: stop ingredients here!
             return;
         }
 
-        // IMPORTANT: mutually exclusive blocks with return
+        // Add to ingredients ONLY if still in ingredients mode
         if (inIngredients) {
             let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
             if (cleaned) ingredients.push(cleaned);
             return;
         }
 
+        // Add to instructions if in instructions mode
         if (inInstructions) {
             let cleaned = trimmed.replace(/^\d+\.\s*/, '');
             if (cleaned) instructions.push(cleaned);
@@ -838,6 +839,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
