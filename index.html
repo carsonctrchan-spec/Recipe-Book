@@ -725,8 +725,7 @@ function savePastedTextAsRecipe() {
     let imageUrl = "";
     let ingredients = [];
     let instructions = [];
-    let inIngredients = false;
-    let inInstructions = false;
+    let collectingInstructions = false;
 
     lines.forEach(line => {
         const trimmed = line.trim();
@@ -768,34 +767,25 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Section switching
-        if (lower.includes('ingredients') || lower.includes('配料')) {
-            inIngredients = true;
-            inInstructions = false;
+        // Trigger instructions collection (very loose)
+        if (!collectingInstructions && lower.includes('instructions')) {
+            collectingInstructions = true;
             return;
         }
 
-        // Trigger instructions on first numbered line (1. 2. etc.)
-        if (!inInstructions && trimmed.match(/^\d+\.\s/)) {
-            inInstructions = true;
-            inIngredients = false;
-            let cleaned = trimmed.replace(/^\d+\.\s*/, '');
-            if (cleaned) instructions.push(cleaned);
-            return;
-        }
-
-        // Ingredients
-        if (inIngredients) {
+        // Ingredients (before instructions start)
+        if (!collectingInstructions) {
             let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
-            if (cleaned) ingredients.push(cleaned);
+            if (cleaned && (trimmed.match(/^\d+(\.\d+)?\s*/) || trimmed.startsWith('-') || trimmed.startsWith('•'))) {
+                ingredients.push(cleaned);
+            }
             return;
         }
 
-        // Instructions
-        if (inInstructions) {
+        // Instructions: every non-empty line after the trigger is one step
+        if (collectingInstructions) {
             let cleaned = trimmed.replace(/^\d+\.\s*/, '');
             if (cleaned) instructions.push(cleaned);
-            return;
         }
     });
 
@@ -825,7 +815,7 @@ function savePastedTextAsRecipe() {
                 `Name: ${name}\n` +
                 `Cuisine: ${cuisine}\n` +
                 `Prep: ${prepTime} min | Cook: ${cookTime} min | Servings: ${servings}\n` +
-                `Ingredients: ${ingredients.length}\n` +
+                `Ingredients: ${ingredients.length} items\n` +
                 `Instructions: ${instructions.length} steps\n` +
                 (imageUrl ? `Image saved` : '') +
                 `\nOpen the card to check.`
@@ -842,6 +832,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
