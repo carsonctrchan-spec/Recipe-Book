@@ -822,7 +822,7 @@ function savePastedTextAsRecipe() {
         lastCooked: null,
         comments: []
     };
-
+console.log("Final instructions array:", instructions);
     recipesRef.add(data)
         .then(() => {
             alert(
@@ -847,6 +847,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
