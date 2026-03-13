@@ -725,7 +725,8 @@ function savePastedTextAsRecipe() {
     let imageUrl = "";
     let ingredients = [];
     let instructions = [];
-    let collectingInstructions = false;
+    let inIngredients = false;
+    let inInstructions = false;
 
     lines.forEach(line => {
         const trimmed = line.trim();
@@ -733,7 +734,7 @@ function savePastedTextAsRecipe() {
 
         if (!trimmed) return;
 
-        // Metadata
+        // Metadata - skip these lines
         if (lower.startsWith('name:')) {
             name = trimmed.replace(/^name:\s*/i, '').trim();
             return;
@@ -767,29 +768,35 @@ function savePastedTextAsRecipe() {
             return;
         }
 
-        // Trigger instructions collection (very loose)
-        if (!collectingInstructions && lower.includes('instructions')) {
-            collectingInstructions = true;
+        // Section switching
+        if (lower.includes('ingredients') || lower === 'ingredients:') {
+            inIngredients = true;
+            inInstructions = false;
             return;
         }
 
-        // Ingredients (before instructions start)
-        if (!collectingInstructions) {
+        if (lower.includes('instructions') || lower.includes('step') || lower === 'instructions:') {
+            inInstructions = true;
+            inIngredients = false;
+            return;
+        }
+
+        // Collect ingredients — accept ANY non-empty line after header
+        if (inIngredients) {
             let cleaned = trimmed.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
-            if (cleaned && (trimmed.match(/^\d+(\.\d+)?\s*/) || trimmed.startsWith('-') || trimmed.startsWith('•'))) {
-                ingredients.push(cleaned);
-            }
+            if (cleaned) ingredients.push(cleaned);
             return;
         }
 
-        // Instructions: every non-empty line after the trigger is one step
-        if (collectingInstructions) {
+        // Collect instructions
+        if (inInstructions) {
             let cleaned = trimmed.replace(/^\d+\.\s*/, '');
             if (cleaned) instructions.push(cleaned);
+            return;
         }
     });
 
-    // Cleanup
+    // Cleanup: remove title duplication if present
     if (instructions.length > 0 && instructions[0].trim().toLowerCase().includes(name.toLowerCase())) {
         instructions.shift();
     }
@@ -832,6 +839,7 @@ function savePastedTextAsRecipe() {
     </script>
 </body>
 </html>
+
 
 
 
